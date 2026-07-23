@@ -1,0 +1,98 @@
+for fitting
+uv run "C:\Users\Ayank\OneDrive\Desktop\internship\Week 2\voigt.py" --folder "C:\Users\Ayank\OneDrive\Desktop\spectra 2" --out results.csv --plots-dir plots                      
+
+for despiking 	
+python despiking.py spec-0266-51630-0098.fits
+python despiking.py spec-0267-51608-0271.fits
+python despiking.py spec-0289-51990-0204.fits
+python despiking.py spec-0301-51942-0401.fits
+python despiking.py spec-0301-51942-0431.fits
+python despiking.py spec-0309-51994-0012.fits
+python despiking.py spec-0309-51994-0570.fits
+python despiking.py spec-0310-51990-0393.fits
+python despiking.py spec-0333-52313-0199.fits
+python despiking.py spec-0339-51692-0617.fits
+python despiking.py spec-0340-51990-0025.fits
+python despiking.py spec-0349-51699-0564.fits
+python despiking.py spec-0351-51695-0434.fits
+python despiking.py spec-0354-51792-0233.fits
+python despiking.py spec-0362-51999-0264.fits
+python despiking.py spec-0375-52140-0345.fits
+python despiking.py spec-0382-51816-0614.fits
+python despiking.py spec-0405-51816-0115.fits
+
+
+for checking 
+python checking.py
+
+Voigt
+uv run voigt.py --folder "C:\Users\Ayank\OneDrive\Desktop\spectra 2" --out results_voigt.csv --plots-dir plots_voigt --verbose
+
+Cropping
+python cropping.py spec-0266-51630-0098_despiked.fits
+python cropping.py spec-0267-51608-0271_despiked.fits
+python cropping.py spec-0289-51990-0204_despiked.fits
+python cropping.py spec-0301-51942-0401_despiked.fits
+python cropping.py spec-0301-51942-0431_despiked.fits
+python cropping.py spec-0309-51994-0012_despiked.fits
+python cropping.py spec-0309-51994-0570_despiked.fits
+python cropping.py spec-0310-51990-0393_despiked.fits
+python cropping.py spec-0333-52313-0199_despiked.fits
+python cropping.py spec-0339-51692-0617_despiked.fits
+python cropping.py spec-0340-51990-0025_despiked.fits
+python cropping.py spec-0349-51699-0564_despiked.fits
+python cropping.py spec-0351-51695-0434_despiked.fits
+python cropping.py spec-0354-51792-0233_despiked.fits
+python cropping.py spec-0362-51999-0264_despiked.fits
+python cropping.py spec-0375-52140-0345_despiked.fits
+python cropping.py spec-0382-51816-0614_despiked.fits
+python cropping.py spec-0405-51816-0115_despiked.fits
+
+
+
+Batch 2 
+despiking 
+python despiking.py spec-0429-51820-0311.fits
+python despiking.py spec-0435-51882-0375.fits
+python despiking.py spec-0467-51901-0150.fits
+python despiking.py spec-0474-52000-0388.fits
+python despiking.py spec-0489-51930-0449.fits
+python despiking.py spec-0520-52288-0570.fits
+python despiking.py spec-0552-51992-0115.fits
+python despiking.py spec-0570-52266-0623.fits
+python despiking.py spec-0583-52055-0432.fits
+python despiking.py spec-0608-52081-0208.fits
+python despiking.py spec-0417-51821-0428.fits
+python despiking.py spec-0430-51877-0013.fits
+python despiking.py spec-0437-51876-0586.fits
+python despiking.py spec-0470-51929-0442.fits
+python despiking.py spec-0476-52314-0553.fits
+python despiking.py spec-0490-51929-0176.fits
+python despiking.py spec-0530-52026-0467.fits
+python despiking.py spec-0557-52253-0630.fits
+python despiking.py spec-0573-52325-0319.fits
+python despiking.py spec-0602-52072-0078.fits
+python despiking.py spec-0608-52081-0542.fits
+python despiking.py spec-0427-51900-0320.fits
+python despiking.py spec-0433-51873-0335.fits
+python despiking.py spec-0445-51873-0378.fits
+python despiking.py spec-0472-51955-0595.fits
+python despiking.py spec-0477-52026-0147.fits
+python despiking.py spec-0493-51957-0437.fits
+python despiking.py spec-0545-52202-0218.fits
+python despiking.py spec-0560-52296-0263.fits
+python despiking.py spec-0575-52319-0448.fits
+python despiking.py spec-0603-52056-0118.fits
+python despiking.py spec-0427-51900-0564.fits
+python despiking.py spec-0433-51873-0379.fits
+python despiking.py spec-0457-51901-0622.fits
+python despiking.py spec-0473-51929-0627.fits
+python despiking.py spec-0481-51908-0513.fits
+python despiking.py spec-0515-52051-0089.fits
+python despiking.py spec-0548-51986-0110.fits
+python despiking.py spec-0566-52238-0038.fits
+python despiking.py spec-0579-52338-0078.fits
+python despiking.py spec-0604-52079-0359.fits
+
+Cropping 
+
