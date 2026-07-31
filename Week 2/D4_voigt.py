@@ -297,34 +297,48 @@ class SpectrumProcessor:
 
 
 class BatchRunner:
+    """
+    Processes each FITS file and writes its own results CSV named
+    'voigt_<filename>.csv' into out_dir, rather than one combined CSV.
+    """
+
     def __init__(self, processor: Optional[SpectrumProcessor] = None):
         self.processor = processor or SpectrumProcessor(LINE_CATALOG)
         self.all_results: list[FitResult] = []
 
-    def run(self, filepaths: list[str], out_csv: str = "line_fit_results.csv") -> pd.DataFrame:
+    def run(self, filepaths: list[str], out_dir: str = ".") -> pd.DataFrame:
+        os.makedirs(out_dir, exist_ok=True)
+
         for i, filepath in enumerate(filepaths, start=1):
-            print(f"[{i}/{len(filepaths)}] Processing {os.path.basename(filepath)} ...")
+            file_name = os.path.basename(filepath)
+            print(f"[{i}/{len(filepaths)}] Processing {file_name} ...")
             try:
-                self.all_results.extend(self.processor.process(filepath))
+                file_results = self.processor.process(filepath)
             except Exception as e:
                 print(f"    !! Failed to process {filepath}: {e}")
-                self.all_results.append(
+                file_results = [
                     FitResult(
-                        file_name=os.path.basename(filepath),
+                        file_name=file_name,
                         line_name="ALL",
                         rest_wavelength=np.nan,
                         note=f"file-level error: {e}",
                     )
-                )
-            self._save(out_csv)
+                ]
+
+            self.all_results.extend(file_results)
+            self._save_file_results(file_results, file_name, out_dir)
 
         return self._to_dataframe()
 
     def _to_dataframe(self) -> pd.DataFrame:
         return pd.DataFrame([r.to_dict() for r in self.all_results])
 
-    def _save(self, out_csv: str) -> None:
-        self._to_dataframe().to_csv(out_csv, index=False)
+    def _save_file_results(self, results: list[FitResult], file_name: str, out_dir: str) -> str:
+        base = os.path.splitext(file_name)[0]
+        out_path = os.path.join(out_dir, f"voigt_{base}.csv")
+        pd.DataFrame([r.to_dict() for r in results]).to_csv(out_path, index=False)
+        print(f"    Saved results: {out_path}")
+        return out_path
 
 
 def parse_args():
@@ -335,8 +349,9 @@ def parse_args():
     parser.add_argument("files", nargs="*", help="Path(s) to FITS file(s)")
     parser.add_argument("--folder", type=str, default=None,
                         help="Folder containing .fits files to process (all files in it)")
-    parser.add_argument("--out", type=str, default="line_fit_results.csv",
-                        help="Output CSV path (default: line_fit_results.csv)")
+    parser.add_argument("--out-dir", type=str, default=".",
+                        help="Directory to write per-file 'voigt_<filename>.csv' results into "
+                             "(default: current directory)")
     parser.add_argument("--plots-dir", type=str, default=None,
                         help="If given, save a PNG per file (spectrum + fitted line panels) "
                              "into this folder. Omit this flag to skip plotting.")
@@ -360,13 +375,13 @@ def main():
     fitter = LineFitter(verbose=args.verbose)
     processor = SpectrumProcessor(LINE_CATALOG, fitter=fitter, plotter=plotter)
     runner = BatchRunner(processor=processor)
-    df = runner.run(filepaths, out_csv=args.out)
+    df = runner.run(filepaths, out_dir=args.out_dir)
 
     print("\n=== Summary ===")
     print(f"Files processed : {df['file_name'].nunique()}")
     print(f"Total line fits : {len(df)}")
     print(f"Successful fits : {int(df['success'].sum())}")
-    print(f"Results saved to: {args.out}")
+    print(f"Results saved to: {args.out_dir}/voigt_<filename>.csv (one CSV per input file)")
     if args.plots_dir:
         print(f"Plots saved to  : {args.plots_dir}/")
 
