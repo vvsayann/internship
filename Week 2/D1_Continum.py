@@ -62,7 +62,7 @@ class LinesWithSigmoid(BaseFitter):
 
 
 
-FITS_PATH = r"C:\Users\Ayank\OneDrive\Desktop\internship\Week 2\spec-0266-51630-0098.fits"
+FITS_PATH = r"C:\Users\Ayank\OneDrive\Desktop\internship\Week 2\spec-0417-51821-0428.fits"
 x, y_data = load_sdss_spectrum(FITS_PATH)
 y_mean = np.median(y_data)
 x_mid = 0.5 * (x.min() + x.max())

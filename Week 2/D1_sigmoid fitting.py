@@ -226,7 +226,7 @@ def analyze_spectrum(wavelength, flux, mask=None, prominence_sigma=4.0, window=2
             "lines": results, "shift_info": shift_info}
 
 
-FITS_PATH = r"C:\Users\Ayank\OneDrive\Desktop\internship\Week 2\your_file.fits"
+FITS_PATH = r"C:\Users\Ayank\OneDrive\Desktop\internship\Week 2\spec-0417-51821-0428.fits"
 
 
 def make_synthetic_spectrum():
