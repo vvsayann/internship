@@ -1,24 +1,20 @@
-
 import sys
 import os
 import numpy as np
 import matplotlib.pyplot as plt
 from astropy.io import fits
 
-# ------------------------- CONFIG -------------------------
-# If you don't pass filenames on the command line, list them here instead:
 FILES_TO_CHECK = [
     "spec-0266-51630-0098.fits",
 ]
 
-HDU_INDEX = 1              # SDSS spectra store the table in extension 1
+HDU_INDEX = 1
 FLUX_COLUMN = "flux"
 LOGLAM_COLUMN = "loglam"
 
-MAX_WAVELENGTH = 7500.0    # angstroms — crop cutoff
+MAX_WAVELENGTH = 7500.0
 
-OUTPUT_DIR = r"C:\Users\Ayank\OneDrive\Desktop\Spectra 2"  # where cropped FITS + plots go
-# ------------------------------------------------------------
+OUTPUT_DIR = r"C:\Users\Ayank\OneDrive\Desktop\Spectra 2"
 
 
 def crop_and_check(filepath):
@@ -55,7 +51,6 @@ def crop_and_check(filepath):
               f"{trimmed_wavelength.max():.2f} A ({n_kept} points kept, "
               f"{len(wavelength) - n_kept} discarded)")
 
-        # ---- Save cropped FITS, preserving all other HDUs ----
         os.makedirs(OUTPUT_DIR, exist_ok=True)
         base = os.path.splitext(os.path.basename(filepath))[0]
         out_fits = os.path.join(OUTPUT_DIR, f"{base}_cropped7500.fits")
@@ -67,7 +62,6 @@ def crop_and_check(filepath):
         hdul_out.writeto(out_fits, overwrite=True)
         print(f"  Saved cropped FITS: {out_fits}")
 
-        # ---- Save a check plot ----
         fig, axes = plt.subplots(2, 1, figsize=(10, 7))
 
         axes[0].plot(wavelength, flux, color="red", linewidth=0.7)

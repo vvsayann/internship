@@ -1,41 +1,3 @@
-"""
-spectral_line_fitter_voigt.py
-
-Automatic spectral line fitting pipeline for SDSS OB-star FITS spectra.
-This version fits a Voigt profile only (Gaussian core + Lorentzian wings --
-the physically realistic profile for most stellar absorption lines).
-
-Most lines are fit with a single Voigt dip. The He I 4028 line is fit with
-TWO overlapping Voigt dips (a "double-dip" fit), since visual inspection
-showed two blended features there that a single symmetric profile could not
-represent well. To mark any other line as blended, set n_components=2 on its
-SpectralLine entry in LINE_CATALOG below.
-
-Pipeline:
-    BatchRunner
-      -> for each fits_file:
-           SpectrumProcessor.process()
-             -> SpectrumReader.load()
-             -> ContinuumNormalizer.normalize()
-             -> LineFitter.fit_line()  for every line in LINE_CATALOG
-                  fits 1 Voigt dip (or 2, for blended lines)
-           -> results appended to a running table
-      -> results saved to CSV
-
-Usage:
-    python spectral_line_fitter_voigt.py file1.fits file2.fits ...
-    python spectral_line_fitter_voigt.py --folder /path/to/fits_dir
-    python spectral_line_fitter_voigt.py --folder /path/to/fits_dir --out results.csv
-    python spectral_line_fitter_voigt.py --folder /path/to/fits_dir --plots-dir plots/
-
---plots-dir is optional: if given, a PNG is saved per file showing the full
-normalized spectrum plus a zoomed-in panel per catalog line with the fitted
-curve overlaid, so you can visually check each fit. Without it, only the
-CSV table of numeric results is produced.
-
-Dependencies: numpy, scipy, pandas, astropy, matplotlib
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -49,7 +11,7 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 import matplotlib
-matplotlib.use("Agg")  # no display needed; just save PNG files
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 from scipy.signal import medfilt
@@ -64,49 +26,35 @@ except ImportError as e:
     ) from e
 
 
-# ---------------------------------------------------------------------------
-# 1. Line catalog: lines with occurrence >= 16/19 from the survey table
-# ---------------------------------------------------------------------------
-
 @dataclass
 class SpectralLine:
-    """Configuration for a single spectral line to search for and fit."""
     name: str
-    rest_wavelength: float   # Angstrom
-    window: float = 15.0     # Angstrom, half-width of the search window
-    n_components: int = 1    # set to 2 for a blended/double-dip feature
+    rest_wavelength: float
+    window: float = 15.0
+    n_components: int = 1
 
 
-# Only lines that appeared in >= 16 of the 19 reference spectra.
-# He I 4028 is marked as a 2-component (blended) fit based on visual inspection
-# showing two overlapping dips rather than one clean symmetric feature.
 LINE_CATALOG: list[SpectralLine] = [
-    SpectralLine("He I 3818",   3818.0, window=12.0),
+    SpectralLine("He I 3818", 3818.0, window=12.0),
     SpectralLine("H8 + He I 3890", 3890.0, window=14.0),
-    SpectralLine("He I 4028",   4028.0, window=16.0, n_components=2),
-    SpectralLine("He I 4473",   4473.0, window=12.0),
-    SpectralLine("He I 4715",   4715.0, window=12.0),
-    SpectralLine("He I 4925",   4925.0, window=12.0),
+    SpectralLine("He I 4028", 4028.0, window=16.0, n_components=2),
+    SpectralLine("He I 4473", 4473.0, window=12.0),
+    SpectralLine("He I 4715", 4715.0, window=12.0),
+    SpectralLine("He I 4925", 4925.0, window=12.0),
 ]
 
 
-# ---------------------------------------------------------------------------
-# 2. Result container
-# ---------------------------------------------------------------------------
-
 @dataclass
 class FitResult:
-    """Standardized output of a single line fit (or one component of a
-    2-component blended fit)."""
     file_name: str
     line_name: str
     rest_wavelength: float
-    fit_type: str = "none"        # "voigt" or "voigt_double"
-    component: str = ""           # "" for single fits, "1" or "2" for double-dip components
+    fit_type: str = "none"
+    component: str = ""
     center: float = np.nan
     depth: float = np.nan
-    width: float = np.nan         # sigma, the Gaussian component of the Voigt profile
-    extra_width: float = np.nan   # gamma, the Lorentzian component of the Voigt profile
+    width: float = np.nan
+    extra_width: float = np.nan
     r_squared: float = np.nan
     success: bool = False
     note: str = ""
@@ -128,24 +76,12 @@ class FitResult:
         }
 
 
-# ---------------------------------------------------------------------------
-# 3. SpectrumReader: FITS I/O only
-# ---------------------------------------------------------------------------
-
 class SpectrumReader:
-    """Reads an SDSS-style spectrum FITS file into wavelength/flux arrays."""
-
     @staticmethod
     def load(filepath: str) -> tuple[np.ndarray, np.ndarray, Optional[np.ndarray]]:
-        """
-        Returns (wavelength, flux, ivar).
-        wavelength is in Angstrom (converted from loglam if needed).
-        ivar (inverse variance) is returned if present, else None.
-        """
         with fits.open(filepath) as hdul:
             data = None
-            # SDSS spec files store the spectrum table in HDU 1 (COADD),
-            # with columns typically named FLUX, LOGLAM, IVAR (or WAVELENGTH).
+            colmap = None
             for hdu in hdul[1:]:
                 if hasattr(hdu, "columns") and hdu.data is not None:
                     colnames = [c.upper() for c in hdu.columns.names]
@@ -155,9 +91,7 @@ class SpectrumReader:
                         break
 
             if data is None:
-                raise ValueError(
-                    f"Could not find a FLUX/LOGLAM (or WAVELENGTH) table in {filepath}"
-                )
+                raise ValueError(f"Could not find a FLUX/LOGLAM (or WAVELENGTH) table in {filepath}")
 
             flux = np.asarray(data[colmap["FLUX"]], dtype=float)
 
@@ -170,11 +104,11 @@ class SpectrumReader:
             if "IVAR" in colmap:
                 ivar = np.asarray(data[colmap["IVAR"]], dtype=float)
 
-        # Sort by wavelength just in case, and drop non-finite values.
         good = np.isfinite(wavelength) & np.isfinite(flux)
         wavelength, flux = wavelength[good], flux[good]
         if ivar is not None:
             ivar = ivar[good]
+
         order = np.argsort(wavelength)
         wavelength, flux = wavelength[order], flux[order]
         if ivar is not None:
@@ -183,23 +117,7 @@ class SpectrumReader:
         return wavelength, flux, ivar
 
 
-# ---------------------------------------------------------------------------
-# 4. ContinuumNormalizer: flatten the continuum to ~1.0
-# ---------------------------------------------------------------------------
-
 class ContinuumNormalizer:
-    """Estimates and removes the stellar continuum so lines sit on a flat baseline.
-
-    Deep or broad absorption lines can drag a naive polynomial-through-the-
-    median-filter continuum downward, which under-corrects the line depth
-    and can bias the normalized spectrum near that line. To guard against
-    this, the continuum polynomial is fit iteratively: after each fit we
-    flag points that sit far *below* the current continuum estimate (i.e.
-    line cores) and exclude them from the next fit. Only low-side outliers
-    are clipped (absorption dips) -- not high-side ones -- since symmetric
-    clipping would also start discarding legitimate continuum points.
-    """
-
     @staticmethod
     def normalize(
         wavelength: np.ndarray,
@@ -209,18 +127,6 @@ class ContinuumNormalizer:
         sigma_clip: float = 2.5,
         max_iter: int = 5,
     ) -> np.ndarray:
-        """
-        Continuum removal:
-          1. Median-filter the spectrum to smooth over narrow absorption dips.
-          2. Iteratively fit a low-order polynomial to that smoothed curve,
-             each round masking out points that fall > sigma_clip standard
-             deviations *below* the current fit (deep/broad line cores),
-             and refitting on the surviving points only.
-          3. Evaluate the final polynomial at every wavelength as the
-             continuum, so flux_norm has full wavelength coverage even
-             though the fit itself ignored line cores.
-        Returns flux_norm = flux / continuum (line-free regions ~ 1.0).
-        """
         kernel = medfilt_kernel if medfilt_kernel % 2 == 1 else medfilt_kernel + 1
         kernel = min(kernel, len(flux) - (1 - len(flux) % 2))
         kernel = max(kernel, 3)
@@ -234,18 +140,15 @@ class ContinuumNormalizer:
         for _ in range(max_iter):
             continuum_est = np.polyval(coeffs, wavelength)
             resid = smoothed - continuum_est
-            # Robust spread estimate on the currently-kept points.
             std = np.std(resid[mask])
             if std == 0 or not np.isfinite(std):
                 break
 
-            new_mask = resid > -sigma_clip * std  # keep everything except deep dips
+            new_mask = resid > -sigma_clip * std
             if new_mask.sum() < min_pts:
-                # Clipping got too aggressive (e.g. a very broad/deep line
-                # dominating the window) -- stop before we run out of points.
                 break
             if np.array_equal(new_mask, mask):
-                break  # converged
+                break
 
             mask = new_mask
             coeffs = np.polyfit(wavelength[mask], smoothed[mask], poly_degree)
@@ -253,17 +156,10 @@ class ContinuumNormalizer:
         continuum = np.polyval(coeffs, wavelength)
         continuum[continuum <= 0] = np.nanmedian(flux[flux > 0]) if np.any(flux > 0) else 1.0
 
-        flux_norm = flux / continuum
-        return flux_norm
+        return flux / continuum
 
-
-# ---------------------------------------------------------------------------
-# 5. LineFitter: Voigt dip model
-# ---------------------------------------------------------------------------
 
 def _voigt_peak_normalized(x, cen, sigma, gamma):
-    """Voigt profile (Gaussian convolved with Lorentzian), normalized so the
-    peak value at x = cen is exactly 1.0 (so 'amp' below means true dip depth)."""
     sigma = max(sigma, 1e-6)
     z = ((x - cen) + 1j * gamma) / (sigma * np.sqrt(2))
     profile = np.real(wofz(z))
@@ -273,14 +169,10 @@ def _voigt_peak_normalized(x, cen, sigma, gamma):
 
 
 def voigt_dip(x, amp, cen, sigma, gamma, offset):
-    """Voigt absorption dip: combines a Gaussian core (sigma) with Lorentzian
-    wings (gamma) -- the physically realistic profile for most stellar lines."""
     return offset - amp * _voigt_peak_normalized(x, cen, sigma, gamma)
 
 
 def voigt_double_dip(x, amp1, cen1, sigma1, gamma1, amp2, cen2, sigma2, gamma2, offset):
-    """Two independent Voigt dips sharing one continuum offset -- for a
-    blended/overlapping pair of lines that a single profile can't fit well."""
     return (
         offset
         - amp1 * _voigt_peak_normalized(x, cen1, sigma1, gamma1)
@@ -289,9 +181,6 @@ def voigt_double_dip(x, amp1, cen1, sigma1, gamma1, amp2, cen2, sigma2, gamma2, 
 
 
 class LineFitter:
-    """Fits a Voigt model (single or 2-component blended) to a windowed
-    region around each line."""
-
     def __init__(self, min_points: int = 8, verbose: bool = False):
         self.min_points = min_points
         self.verbose = verbose
@@ -315,14 +204,9 @@ class LineFitter:
             [10 * amp0 + 1e-6, x.max(), (x.max() - x.min()), (x.max() - x.min()), 10 * offset0 + 1e-6],
         )
         popt, _ = curve_fit(voigt_dip, x, y, p0=p0, bounds=bounds, maxfev=20000)
-        y_fit = voigt_dip(x, *popt)
-        return popt, self._r_squared(y, y_fit)
+        return popt, self._r_squared(y, voigt_dip(x, *popt))
 
     def fit_double_voigt(self, x: np.ndarray, y: np.ndarray, guess_center: float):
-        """Fits two Voigt dips at once. Initial guesses are found by locating
-        the deepest point on either side of guess_center (left half / right
-        half of the window), which matches the visual pattern of two
-        overlapping dips straddling the catalog wavelength."""
         offset0 = float(np.max(y))
         span = x.max() - x.min()
 
@@ -349,14 +233,10 @@ class LineFitter:
             [10 * amp0 + 1e-6, guess_center, span, span,
              10 * amp0 + 1e-6, x.max(), span, span, 10 * offset0 + 1e-6],
         )
-        # cen1 is constrained to [x.min(), guess_center] and cen2 to
-        # [x.min(), x.max()] via bounds above -- but we also want cen2 to stay
-        # on the right side, so tighten cen2's lower bound to guess_center.
         bounds[0][5] = guess_center
 
         popt, _ = curve_fit(voigt_double_dip, x, y, p0=p0, bounds=bounds, maxfev=40000)
-        y_fit = voigt_double_dip(x, *popt)
-        return popt, self._r_squared(y, y_fit)
+        return popt, self._r_squared(y, voigt_double_dip(x, *popt))
 
     def fit_line(
         self,
@@ -370,9 +250,6 @@ class LineFitter:
         x, y = wavelength[mask], flux_norm[mask]
 
         def _fail(note: str) -> list[FitResult]:
-            """Always returns exactly line.n_components entries, so the
-            flattened results list stays aligned with the catalog regardless
-            of success/failure."""
             n = line.n_components
             comps = [""] if n == 1 else ["1", "2"]
             return [
@@ -391,7 +268,6 @@ class LineFitter:
         if len(x) < min_pts_needed:
             return _fail("insufficient data points in window")
 
-        # --- single-component Voigt fit (the default case) ---
         if line.n_components == 1:
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
@@ -417,10 +293,8 @@ class LineFitter:
                 extra_width=float(gamma),
                 r_squared=float(r2),
                 success=True,
-                note="",
             )]
 
-        # --- 2-component (blended/double-dip) Voigt fit ---
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             try:
@@ -447,7 +321,6 @@ class LineFitter:
             extra_width=float(gamma1),
             r_squared=float(r2),
             success=True,
-            note="",
         )
         result2 = FitResult(
             file_name=file_name,
@@ -461,19 +334,11 @@ class LineFitter:
             extra_width=float(gamma2),
             r_squared=float(r2),
             success=True,
-            note="",
         )
         return [result1, result2]
 
 
-# ---------------------------------------------------------------------------
-# 6. SpectrumPlotter: saves a PNG showing the full spectrum + zoomed fit panels
-# ---------------------------------------------------------------------------
-
 class SpectrumPlotter:
-    """Renders one PNG per spectrum: full normalized spectrum on top, and a
-    zoomed-in panel per catalog line underneath showing the data + fitted curve."""
-
     def __init__(self, plots_dir: str):
         self.plots_dir = plots_dir
         os.makedirs(self.plots_dir, exist_ok=True)
@@ -482,9 +347,6 @@ class SpectrumPlotter:
     def _group_results_by_line(
         line_catalog: list[SpectralLine], results: list[FitResult]
     ) -> list[list[FitResult]]:
-        """Splits the flat results list back into one sub-list per catalog
-        line, using each line's n_components (matches how fit_line/_fail
-        always emit exactly n_components entries)."""
         grouped = []
         idx = 0
         for line in line_catalog:
@@ -510,25 +372,18 @@ class SpectrumPlotter:
         fig = plt.figure(figsize=(14, 4 + 3 * n_rows))
         gs = fig.add_gridspec(n_rows + 1, n_cols, height_ratios=[2] + [1] * n_rows)
 
-        # --- top panel: full normalized spectrum ---
         ax_full = fig.add_subplot(gs[0, :])
         ax_full.plot(wavelength, flux_norm, color="black", lw=0.6, label="spectrum")
 
         catalog_line_drawn = False
         fitted_line_drawn = False
         for line, line_results in zip(line_catalog, results_by_line):
-            # Catalog (rest) wavelength -- where we searched.
             ax_full.axvline(
                 line.rest_wavelength, color="tab:red", ls="--", lw=0.7, alpha=0.6,
                 label="catalog wavelength" if not catalog_line_drawn else None,
             )
             catalog_line_drawn = True
 
-            # Actual fitted center(s) -- where the Voigt fit(s) landed. Drawn
-            # separately from the catalog line so a real offset (e.g. a
-            # blended double-dip pulling away from the tabulated wavelength)
-            # is visible at a glance in the overview panel, not just in the
-            # zoomed panel below.
             for r in line_results:
                 if r.success and np.isfinite(r.center):
                     ax_full.axvline(
@@ -542,7 +397,6 @@ class SpectrumPlotter:
         ax_full.set_ylabel("Normalized flux")
         ax_full.legend(fontsize=7, loc="lower right")
 
-        # --- bottom panels: zoomed fit per line ---
         for i, (line, line_results) in enumerate(zip(line_catalog, results_by_line)):
             row, col = divmod(i, n_cols)
             ax = fig.add_subplot(gs[row + 1, col])
@@ -595,10 +449,6 @@ class SpectrumPlotter:
         return out_path
 
 
-# ---------------------------------------------------------------------------
-# 7. SpectrumProcessor: glue for a single file
-# ---------------------------------------------------------------------------
-
 class SpectrumProcessor:
     def __init__(
         self,
@@ -608,7 +458,7 @@ class SpectrumProcessor:
     ):
         self.line_catalog = line_catalog
         self.fitter = fitter or LineFitter()
-        self.plotter = plotter  # None => no plots generated
+        self.plotter = plotter
 
     def process(self, filepath: str) -> list[FitResult]:
         file_name = os.path.basename(filepath)
@@ -617,8 +467,7 @@ class SpectrumProcessor:
 
         results = []
         for line in self.line_catalog:
-            line_results = self.fitter.fit_line(wavelength, flux_norm, line, file_name)
-            results.extend(line_results)
+            results.extend(self.fitter.fit_line(wavelength, flux_norm, line, file_name))
 
         if self.plotter is not None:
             png_path = self.plotter.plot(wavelength, flux_norm, self.line_catalog, results, file_name)
@@ -626,10 +475,6 @@ class SpectrumProcessor:
 
         return results
 
-
-# ---------------------------------------------------------------------------
-# 8. BatchRunner: processes files one by one, saves running results table
-# ---------------------------------------------------------------------------
 
 class BatchRunner:
     def __init__(self, processor: Optional[SpectrumProcessor] = None):
@@ -640,8 +485,7 @@ class BatchRunner:
         for i, filepath in enumerate(filepaths, start=1):
             print(f"[{i}/{len(filepaths)}] Processing {os.path.basename(filepath)} ...")
             try:
-                results = self.processor.process(filepath)
-                self.all_results.extend(results)
+                self.all_results.extend(self.processor.process(filepath))
             except Exception as e:
                 print(f"    !! Failed to process {filepath}: {e}")
                 self.all_results.append(
@@ -652,8 +496,6 @@ class BatchRunner:
                         note=f"file-level error: {e}",
                     )
                 )
-
-            # Save incrementally so a crash mid-batch doesn't lose earlier work.
             self._save(out_csv)
 
         return self._to_dataframe()
@@ -662,13 +504,8 @@ class BatchRunner:
         return pd.DataFrame([r.to_dict() for r in self.all_results])
 
     def _save(self, out_csv: str) -> None:
-        df = self._to_dataframe()
-        df.to_csv(out_csv, index=False)
+        self._to_dataframe().to_csv(out_csv, index=False)
 
-
-# ---------------------------------------------------------------------------
-# 9. CLI entry point
-# ---------------------------------------------------------------------------
 
 def parse_args():
     parser = argparse.ArgumentParser(

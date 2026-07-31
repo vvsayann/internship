@@ -5,13 +5,13 @@ import glob
 import os
 import sys
 import warnings
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Optional
 
 import numpy as np
 import pandas as pd
 import matplotlib
-matplotlib.use("Agg")  # no display needed; just save PNG files
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 from scipy.signal import medfilt
@@ -25,44 +25,32 @@ except ImportError as e:
     ) from e
 
 
-# ---------------------------------------------------------------------------
-# 1. Line catalog: lines with occurrence >= 16/19 from the survey table
-# ---------------------------------------------------------------------------
-
 @dataclass
 class SpectralLine:
-    """Configuration for a single spectral line to search for and fit."""
     name: str
-    rest_wavelength: float   # Angstrom
-    window: float = 15.0     # Angstrom, half-width of the search window
+    rest_wavelength: float
+    window: float = 15.0
 
 
-# Only lines that appeared in >= 16 of the 19 reference spectra.
 LINE_CATALOG: list[SpectralLine] = [
-    SpectralLine("He I 3818",   3818.0, window=12.0),
+    SpectralLine("He I 3818", 3818.0, window=12.0),
     SpectralLine("H8 + He I 3890", 3890.0, window=14.0),
-    SpectralLine("He I 4028",   4028.0, window=12.0),
-    SpectralLine("He I 4473",   4473.0, window=12.0),
-    SpectralLine("He I 4715",   4715.0, window=12.0),
-    SpectralLine("He I 4925",   4925.0, window=12.0),
+    SpectralLine("He I 4028", 4028.0, window=12.0),
+    SpectralLine("He I 4473", 4473.0, window=12.0),
+    SpectralLine("He I 4715", 4715.0, window=12.0),
+    SpectralLine("He I 4925", 4925.0, window=12.0),
 ]
 
 
-# ---------------------------------------------------------------------------
-# 2. Result container
-# ---------------------------------------------------------------------------
-
 @dataclass
 class FitResult:
-    """Standardized output of a single line fit."""
     file_name: str
     line_name: str
     rest_wavelength: float
-    fit_type: str = "none"        # "gaussian", "sigmoid", "lorentzian", or "voigt"
+    fit_type: str = "none"
     center: float = np.nan
     depth: float = np.nan
-    width: float = np.nan         # sigma (gaussian), width (sigmoid), gamma (lorentzian), sigma (voigt)
-    extra_width: float = np.nan   # only used by voigt: the gamma (Lorentzian) component
+    width: float = np.nan
     r_squared: float = np.nan
     success: bool = False
     note: str = ""
@@ -76,31 +64,18 @@ class FitResult:
             "fitted_center": self.center,
             "depth": self.depth,
             "width": self.width,
-            "extra_width_voigt_gamma": self.extra_width,
             "r_squared": self.r_squared,
             "success": self.success,
             "note": self.note,
         }
 
 
-# ---------------------------------------------------------------------------
-# 3. SpectrumReader: FITS I/O only
-# ---------------------------------------------------------------------------
-
 class SpectrumReader:
-    """Reads an SDSS-style spectrum FITS file into wavelength/flux arrays."""
-
     @staticmethod
     def load(filepath: str) -> tuple[np.ndarray, np.ndarray, Optional[np.ndarray]]:
-        """
-        Returns (wavelength, flux, ivar).
-        wavelength is in Angstrom (converted from loglam if needed).
-        ivar (inverse variance) is returned if present, else None.
-        """
         with fits.open(filepath) as hdul:
             data = None
-            # SDSS spec files store the spectrum table in HDU 1 (COADD),
-            # with columns typically named FLUX, LOGLAM, IVAR (or WAVELENGTH).
+            colmap = None
             for hdu in hdul[1:]:
                 if hasattr(hdu, "columns") and hdu.data is not None:
                     colnames = [c.upper() for c in hdu.columns.names]
@@ -110,9 +85,7 @@ class SpectrumReader:
                         break
 
             if data is None:
-                raise ValueError(
-                    f"Could not find a FLUX/LOGLAM (or WAVELENGTH) table in {filepath}"
-                )
+                raise ValueError(f"Could not find a FLUX/LOGLAM (or WAVELENGTH) table in {filepath}")
 
             flux = np.asarray(data[colmap["FLUX"]], dtype=float)
 
@@ -125,11 +98,11 @@ class SpectrumReader:
             if "IVAR" in colmap:
                 ivar = np.asarray(data[colmap["IVAR"]], dtype=float)
 
-        # Sort by wavelength just in case, and drop non-finite values.
         good = np.isfinite(wavelength) & np.isfinite(flux)
         wavelength, flux = wavelength[good], flux[good]
         if ivar is not None:
             ivar = ivar[good]
+
         order = np.argsort(wavelength)
         wavelength, flux = wavelength[order], flux[order]
         if ivar is not None:
@@ -138,13 +111,7 @@ class SpectrumReader:
         return wavelength, flux, ivar
 
 
-# ---------------------------------------------------------------------------
-# 4. ContinuumNormalizer: flatten the continuum to ~1.0
-# ---------------------------------------------------------------------------
-
 class ContinuumNormalizer:
-    """Estimates and removes the stellar continuum so lines sit on a flat baseline."""
-
     @staticmethod
     def normalize(
         wavelength: np.ndarray,
@@ -152,12 +119,6 @@ class ContinuumNormalizer:
         poly_degree: int = 5,
         medfilt_kernel: int = 51,
     ) -> np.ndarray:
-        """
-        Two-stage continuum removal:
-          1. Median-filter the spectrum to smooth over narrow absorption dips.
-          2. Fit a low-order polynomial to that smoothed curve as the continuum.
-        Returns flux_norm = flux / continuum (line-free regions ~ 1.0).
-        """
         kernel = medfilt_kernel if medfilt_kernel % 2 == 1 else medfilt_kernel + 1
         kernel = min(kernel, len(flux) - (1 - len(flux) % 2))
         kernel = max(kernel, 3)
@@ -168,23 +129,14 @@ class ContinuumNormalizer:
         continuum = np.polyval(coeffs, wavelength)
         continuum[continuum <= 0] = np.nanmedian(flux[flux > 0]) if np.any(flux > 0) else 1.0
 
-        flux_norm = flux / continuum
-        return flux_norm
+        return flux / continuum
 
-
-# ---------------------------------------------------------------------------
-# 5. LineFitter: Lorentzian dip model
-# ---------------------------------------------------------------------------
 
 def lorentzian_dip(x, amp, cen, gamma, offset):
-    """Symmetric absorption dip with Lorentzian wings (pressure/natural
-    broadening dominated). gamma is the half-width at half-maximum (HWHM)."""
     return offset - amp * (gamma ** 2 / ((x - cen) ** 2 + gamma ** 2))
 
 
 class LineFitter:
-    """Fits a Lorentzian model to a windowed region around each line."""
-
     def __init__(self, min_points: int = 8, verbose: bool = False):
         self.min_points = min_points
         self.verbose = verbose
@@ -207,16 +159,9 @@ class LineFitter:
             [10 * amp0 + 1e-6, x.max(), (x.max() - x.min()), 10 * offset0 + 1e-6],
         )
         popt, _ = curve_fit(lorentzian_dip, x, y, p0=p0, bounds=bounds, maxfev=10000)
-        y_fit = lorentzian_dip(x, *popt)
-        return popt, self._r_squared(y, y_fit)
+        return popt, self._r_squared(y, lorentzian_dip(x, *popt))
 
-    def fit_line(
-        self,
-        wavelength: np.ndarray,
-        flux_norm: np.ndarray,
-        line: SpectralLine,
-        file_name: str,
-    ) -> FitResult:
+    def fit_line(self, wavelength: np.ndarray, flux_norm: np.ndarray, line: SpectralLine, file_name: str) -> FitResult:
         lo, hi = line.rest_wavelength - line.window, line.rest_wavelength + line.window
         mask = (wavelength >= lo) & (wavelength <= hi)
         x, y = wavelength[mask], flux_norm[mask]
@@ -256,30 +201,15 @@ class LineFitter:
             width=float(gamma),
             r_squared=float(r2),
             success=True,
-            note="",
         )
 
 
-# ---------------------------------------------------------------------------
-# 6. SpectrumPlotter: saves a PNG showing the full spectrum + zoomed fit panels
-# ---------------------------------------------------------------------------
-
 class SpectrumPlotter:
-    """Renders one PNG per spectrum: full normalized spectrum on top, and a
-    zoomed-in panel per catalog line underneath showing the data + fitted curve."""
-
     def __init__(self, plots_dir: str):
         self.plots_dir = plots_dir
         os.makedirs(self.plots_dir, exist_ok=True)
 
-    def plot(
-        self,
-        wavelength: np.ndarray,
-        flux_norm: np.ndarray,
-        line_catalog: list[SpectralLine],
-        results: list[FitResult],
-        file_name: str,
-    ) -> str:
+    def plot(self, wavelength, flux_norm, line_catalog, results, file_name) -> str:
         n_lines = len(line_catalog)
         n_cols = 3
         n_rows = int(np.ceil(n_lines / n_cols))
@@ -287,7 +217,6 @@ class SpectrumPlotter:
         fig = plt.figure(figsize=(14, 4 + 3 * n_rows))
         gs = fig.add_gridspec(n_rows + 1, n_cols, height_ratios=[2] + [1] * n_rows)
 
-        # --- top panel: full normalized spectrum ---
         ax_full = fig.add_subplot(gs[0, :])
         ax_full.plot(wavelength, flux_norm, color="black", lw=0.6)
         for line in line_catalog:
@@ -296,7 +225,6 @@ class SpectrumPlotter:
         ax_full.set_xlabel("Wavelength (\u00c5)")
         ax_full.set_ylabel("Normalized flux")
 
-        # --- bottom panels: zoomed fit per line ---
         for i, (line, result) in enumerate(zip(line_catalog, results)):
             row, col = divmod(i, n_cols)
             ax = fig.add_subplot(gs[row + 1, col])
@@ -308,22 +236,8 @@ class SpectrumPlotter:
 
             if result.success:
                 x_fine = np.linspace(x.min(), x.max(), 200)
-                if result.fit_type == "gaussian":
-                    y_fine = gaussian_dip(x_fine, result.depth, result.center,
-                                          result.width, np.max(y))
-                elif result.fit_type == "sigmoid":
-                    y_fine = sigmoid_dip(x_fine, result.depth, result.center,
-                                         result.width, np.max(y))
-                elif result.fit_type == "lorentzian":
-                    y_fine = lorentzian_dip(x_fine, result.depth, result.center,
-                                            result.width, np.max(y))
-                elif result.fit_type == "voigt":
-                    y_fine = voigt_dip(x_fine, result.depth, result.center,
-                                       result.width, result.extra_width, np.max(y))
-                else:
-                    y_fine = np.full_like(x_fine, np.max(y))
-                ax.plot(x_fine, y_fine, "-", color="tab:red", lw=1.5,
-                        label=f"{result.fit_type} fit")
+                y_fine = lorentzian_dip(x_fine, result.depth, result.center, result.width, np.max(y))
+                ax.plot(x_fine, y_fine, "-", color="tab:red", lw=1.5, label=f"{result.fit_type} fit")
                 ax.axvline(result.center, color="tab:blue", ls=":", lw=1)
                 title = f"{line.name}\ncenter={result.center:.1f}\u00c5  R\u00b2={result.r_squared:.3f}"
             else:
@@ -342,10 +256,6 @@ class SpectrumPlotter:
         return out_path
 
 
-# ---------------------------------------------------------------------------
-# 7. SpectrumProcessor: glue for a single file
-# ---------------------------------------------------------------------------
-
 class SpectrumProcessor:
     def __init__(
         self,
@@ -355,17 +265,14 @@ class SpectrumProcessor:
     ):
         self.line_catalog = line_catalog
         self.fitter = fitter or LineFitter()
-        self.plotter = plotter  # None => no plots generated
+        self.plotter = plotter
 
     def process(self, filepath: str) -> list[FitResult]:
         file_name = os.path.basename(filepath)
         wavelength, flux, _ivar = SpectrumReader.load(filepath)
         flux_norm = ContinuumNormalizer.normalize(wavelength, flux)
 
-        results = []
-        for line in self.line_catalog:
-            result = self.fitter.fit_line(wavelength, flux_norm, line, file_name)
-            results.append(result)
+        results = [self.fitter.fit_line(wavelength, flux_norm, line, file_name) for line in self.line_catalog]
 
         if self.plotter is not None:
             png_path = self.plotter.plot(wavelength, flux_norm, self.line_catalog, results, file_name)
@@ -373,10 +280,6 @@ class SpectrumProcessor:
 
         return results
 
-
-# ---------------------------------------------------------------------------
-# 8. BatchRunner: processes files one by one, saves running results table
-# ---------------------------------------------------------------------------
 
 class BatchRunner:
     def __init__(self, processor: Optional[SpectrumProcessor] = None):
@@ -387,8 +290,7 @@ class BatchRunner:
         for i, filepath in enumerate(filepaths, start=1):
             print(f"[{i}/{len(filepaths)}] Processing {os.path.basename(filepath)} ...")
             try:
-                results = self.processor.process(filepath)
-                self.all_results.extend(results)
+                self.all_results.extend(self.processor.process(filepath))
             except Exception as e:
                 print(f"    !! Failed to process {filepath}: {e}")
                 self.all_results.append(
@@ -399,8 +301,6 @@ class BatchRunner:
                         note=f"file-level error: {e}",
                     )
                 )
-
-            # Save incrementally so a crash mid-batch doesn't lose earlier work.
             self._save(out_csv)
 
         return self._to_dataframe()
@@ -409,18 +309,13 @@ class BatchRunner:
         return pd.DataFrame([r.to_dict() for r in self.all_results])
 
     def _save(self, out_csv: str) -> None:
-        df = self._to_dataframe()
-        df.to_csv(out_csv, index=False)
+        self._to_dataframe().to_csv(out_csv, index=False)
 
-
-# ---------------------------------------------------------------------------
-# 9. CLI entry point
-# ---------------------------------------------------------------------------
 
 def parse_args():
     parser = argparse.ArgumentParser(
         description="Automatically fit recurring spectral lines (occurrence >= 16/19) "
-                    "in one or more SDSS FITS spectra."
+                    "in one or more SDSS FITS spectra using a Lorentzian profile."
     )
     parser.add_argument("files", nargs="*", help="Path(s) to FITS file(s)")
     parser.add_argument("--folder", type=str, default=None,
@@ -431,8 +326,7 @@ def parse_args():
                         help="If given, save a PNG per file (spectrum + fitted line panels) "
                              "into this folder. Omit this flag to skip plotting.")
     parser.add_argument("--verbose", action="store_true",
-                        help="Print the R^2 of all 4 candidate models (gaussian, sigmoid, "
-                             "lorentzian, voigt) for every line, so you can see why one won.")
+                        help="Print the R^2 of the Lorentzian fit for every line.")
     return parser.parse_args()
 
 

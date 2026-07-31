@@ -1,42 +1,20 @@
-"""
-despike_fits.py
-
-Removes single/narrow-point spike artifacts (e.g. cosmic ray hits, and
-narrow sky-emission-line subtraction residuals such as the 5577/6300/6363 A
-night-sky lines that are extremely common in SDSS-style spectra) from a 1D
-FITS spectrum, saves the cleaned spectrum to a NEW file (original is never
-modified), and shows a before/after plot so you can verify the fix.
-
-Usage:
-    python despike_fits.py input_spectrum.fits
-
-Adjust the CONFIG section below to match your file's structure.
-"""
-
 import sys
 import numpy as np
 import matplotlib.pyplot as plt
 from astropy.io import fits
 from astropy.stats import mad_std
 
-# ------------------------- CONFIG -------------------------
 INPUT_FILE = sys.argv[1] if len(sys.argv) > 1 else "spectrum.fits"
 OUTPUT_FILE = INPUT_FILE.replace(".fits", "_despiked.fits")
 
-HDU_INDEX = 1          # which HDU holds the data (0 = primary; try 1 if that's empty)
-IS_TABLE = True         # set True if data lives in a table column instead of an image array
-FLUX_COLUMN = "FLUX"    # only used if IS_TABLE is True
+HDU_INDEX = 1
+IS_TABLE = True
+FLUX_COLUMN = "FLUX"
 
-WINDOW = 15             # number of neighboring points on EACH side used for local stats
-GAP = 3                 # points immediately adjacent to the tested point that are EXCLUDED
-                        # from the local baseline. This is what protects against multi-pixel
-                        # wide artifacts (cosmic rays hitting at an angle, sky-line residuals)
-                        # contaminating the very statistics used to judge them.
-SIGMA_THRESH = 3.5      # how many local-sigma above/below median counts as a spike
-PASSES = 3              # re-run detection on the progressively cleaned data up to this many
-                        # times, so a point initially masked by a bigger neighboring spike
-                        # still gets caught once that neighbor has been smoothed away
-# ------------------------------------------------------------
+WINDOW = 15
+GAP = 3
+SIGMA_THRESH = 3.5
+PASSES = 3
 
 
 def load_spectrum(path):
@@ -50,25 +28,6 @@ def load_spectrum(path):
 
 
 def detect_spikes(data, window=WINDOW, sigma_thresh=SIGMA_THRESH, gap=GAP):
-    """Flag points that deviate strongly from their local neighborhood.
-
-    Two changes versus a naive version matter for artifacts wider than a
-    single pixel:
-
-    1. `gap` excludes a small buffer around the tested point (not just the
-       point itself) from the reference window. Without this, the OTHER
-       pixels belonging to the same artifact stay inside the "local"
-       sample: they drag the local median around and inflate the local
-       spread so much that even the most extreme point in the group no
-       longer looks like an outlier relative to it. Nearby outliers end up
-       masking each other - this is why a single-point exclusion misses
-       multi-pixel spikes even at a very obvious visual amplitude.
-    2. The local spread is estimated with the median absolute deviation
-       (scaled to be comparable to a standard deviation) instead of a
-       plain std. MAD is far less sensitive to a handful of contaminating
-       points than std is, so it stays informative even when a few of the
-       remaining "local" points are still a bit off.
-    """
     n = len(data)
     spikes = np.zeros(n, dtype=bool)
     for i in range(n):
@@ -94,13 +53,6 @@ def remove_spikes(data, spikes):
 
 def detect_and_remove_spikes(data, window=WINDOW, sigma_thresh=SIGMA_THRESH,
                               gap=GAP, passes=PASSES):
-    """Runs detection/removal for up to `passes` rounds. Each round looks for
-    NEW spikes in the best-current cleaned version of the data (so a smaller
-    point that was masked by a bigger neighboring spike in round 1 becomes
-    visible once that neighbor has been smoothed away), but always
-    interpolates from the ORIGINAL data at not-yet-flagged points, so
-    replacement values never compound across rounds.
-    """
     all_spikes = np.zeros(len(data), dtype=bool)
     clean = data.copy()
     for _ in range(passes):

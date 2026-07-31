@@ -8,10 +8,6 @@ from pymultifit.fitters.backend.baseFitter import BaseFitter
 from astropy.io import fits
 
 
-# ---------------------------------------------------------------------------
-# Continuum model: sigmoid-blended pair of lines (user-provided)
-# ---------------------------------------------------------------------------
-
 def sigmoid(x, k, x0):
     return 1.0 / (1.0 + np.exp(-k * (x - x0)))
 
@@ -21,14 +17,6 @@ def line(x, a, b):
 
 
 def blended_model(x, transition, sharpness, a1, b1, a2, b2):
-    """Continuum = sigmoid-weighted blend of two lines.
-
-    Parameter order: (transition, sharpness, a1, b1, a2, b2)
-      transition -> passed as sigmoid's k  (steepness)
-      sharpness  -> passed as sigmoid's x0 (midpoint location)
-      a1, b1     -> slope/intercept of line 1
-      a2, b2     -> slope/intercept of line 2
-    """
     s = sigmoid(x, transition, sharpness)
     return s * line(x, a1, b1) + (1 - s) * line(x, a2, b2)
 
@@ -48,7 +36,6 @@ class LinesWithSigmoid(BaseFitter):
         slope_bound = (y_span / x_span) * 10 if x_span > 0 else np.inf
         intercept_bound = 10 * max(abs(y_min), abs(y_max), 1.0)
 
-        # Order MUST match blended_model's signature: (k, x0, a1, b1, a2, b2)
         lb = (-1.0, x_min, -slope_bound, -intercept_bound, -slope_bound, -intercept_bound)
         ub = (1.0, x_max, slope_bound, intercept_bound, slope_bound, intercept_bound)
         return lb, ub
@@ -57,11 +44,6 @@ class LinesWithSigmoid(BaseFitter):
     def fitter(x, params) -> np.ndarray:
         return blended_model(x, *params)
 
-
-# ---------------------------------------------------------------------------
-# Line-feature model: Gaussian only (positive amplitude for emission,
-# negative amplitude for absorption)
-# ---------------------------------------------------------------------------
 
 def raw_gaussian(x, amplitude, mu, sigma):
     return amplitude * np.exp(-0.5 * ((x - mu) / sigma) ** 2)
@@ -85,10 +67,6 @@ class GaussianFitterNegativeAmplitude(GaussianFitter):
     def fit_boundaries(self):
         return (-np.inf, -np.inf, 0), (0, np.inf, np.inf)
 
-
-# ---------------------------------------------------------------------------
-# I/O helpers
-# ---------------------------------------------------------------------------
 
 def load_fits_spectrum(path, flux_hdu=0, table_hdu=None, wave_col="WAVELENGTH", flux_col="FLUX", wave_in_log10=False):
     with fits.open(path) as hdul:
@@ -131,14 +109,9 @@ KNOWN_LINES = {
 }
 
 
-# ---------------------------------------------------------------------------
-# Continuum + feature fitting pipeline
-# ---------------------------------------------------------------------------
-
 def fit_continuum(wavelength, flux, p0=None):
     cont = LinesWithSigmoid(wavelength, flux)
     if p0 is None:
-        # order: (transition/k, sharpness/x0, a1, b1, a2, b2)
         p0 = (0.001, float(np.median(wavelength)), 0.0, float(np.median(flux)), 0.0, float(np.median(flux)))
     cont.fit(p0=[p0])
     return cont
@@ -232,7 +205,6 @@ FITS_PATH = r"C:\Users\Ayank\OneDrive\Desktop\internship\Week 2\spec-0375-52140-
 def make_synthetic_spectrum():
     rng = np.random.default_rng(0)
     wavelength = np.linspace(3700, 8000, 2000)
-    # continuum params in blended_model order: (k, x0, a1, b1, a2, b2)
     continuum_true = blended_model(wavelength, 0.0013, 5200, -0.00045, 6.7, 0.033, 40.0)
     z_true = 0.003
     injected = {
@@ -254,7 +226,6 @@ if __name__ == "__main__":
     else:
         print(f"'{FITS_PATH}' not found -- using synthetic demo data.\n")
         wavelength, flux = make_synthetic_spectrum()
-
 
     result = analyze_spectrum(wavelength, flux, prominence_sigma=4.0, window=25, max_match_error=5.0)
 
