@@ -8,13 +8,11 @@ import matplotlib.pyplot as plt
 
 
 def load_sdss_spectrum(filepath: str) -> Tuple[np.ndarray, np.ndarray]:
-
     with fits.open(filepath) as hdul:
         data = hdul[1].data
         wavelength = 10 ** data["loglam"]
         flux = data["flux"]
         ivar = data["ivar"]
-
 
     good = ivar > 0
     return wavelength[good], flux[good]
@@ -29,13 +27,11 @@ def line(x, a, b):
 
 
 def blended_model(x, a1, b1, a2, b2, k, x0):
-
     s = sigmoid(x, k, x0)
     return s * line(x, a1, b1) + (1 - s) * line(x, a2, b2)
 
 
 class LinesWithSigmoid(BaseFitter):
-
     def __init__(self, x_values, y_values, max_iterations=1000):
         super().__init__(x_values, y_values, max_iterations)
         self.n_par = 6
@@ -51,7 +47,6 @@ class LinesWithSigmoid(BaseFitter):
         slope_bound = (y_span / x_span) * 10 if x_span > 0 else np.inf
         intercept_bound = 10 * max(abs(y_min), abs(y_max), 1.0)
 
-
         lb = (-slope_bound, -intercept_bound, -slope_bound, -intercept_bound, -1.0, x_min)
         ub = (slope_bound, intercept_bound, slope_bound, intercept_bound, 1.0, x_max)
         return lb, ub
@@ -61,13 +56,13 @@ class LinesWithSigmoid(BaseFitter):
         return blended_model(x, *params)
 
 
-
 FITS_PATH = r"C:\Users\Ayank\OneDrive\Desktop\internship\Week 2\spec-0417-51821-0428.fits"
+
 x, y_data = load_sdss_spectrum(FITS_PATH)
+
 y_mean = np.median(y_data)
 x_mid = 0.5 * (x.min() + x.max())
 x_span = x.max() - x.min()
-
 p0 = [0.0, y_mean, 0.0, y_mean, 4.0 / x_span, x_mid]
 
 fitter_obj = LinesWithSigmoid(x, y_data)
@@ -81,11 +76,6 @@ print(f"  L1: y = {a1:.6f}*x + {b1:.3f}")
 print(f"  L2: y = {a2:.6f}*x + {b2:.3f}")
 print(f"  sigmoid: k = {k:.6f}, x0 = {x0:.1f}")
 
-L1 = line(x, a1, b1)
-L2 = line(x, a2, b2)
-s = sigmoid(x, k, x0)
-contrib_L1 = s * L1
-contrib_L2 = (1 - s) * L2
 final = blended_model(x, a1, b1, a2, b2, k, x0)
 
 fig, ax = plt.subplots(figsize=(10, 6))
