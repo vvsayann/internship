@@ -217,3 +217,7 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 rough_*.py
+guide.pdf
+outline.md.pdf
+commands.txt
+commong spectral lines.txt
