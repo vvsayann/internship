@@ -54,6 +54,7 @@ class FitResult:
     r_squared: float = np.nan
     success: bool = False
     note: str = ""
+    continuum_offset: float = np.nan  # internal only: used for plotting, not exported to CSV
 
     def to_dict(self) -> dict:
         return {
@@ -63,7 +64,7 @@ class FitResult:
             "fit_type": self.fit_type,
             "fitted_center": self.center,
             "depth": self.depth,
-            "width": self.width,
+            "sigma_gaussian_width": self.width,
             "r_squared": self.r_squared,
             "success": self.success,
             "note": self.note,
@@ -132,8 +133,14 @@ class ContinuumNormalizer:
         return flux / continuum
 
 
-def lorentzian_dip(x, amp, cen, gamma, offset):
-    return offset - amp * (gamma ** 2 / ((x - cen) ** 2 + gamma ** 2))
+def gaussian_dip(x, amp, cen, sigma, offset):
+    """
+    Pure Gaussian absorption dip:
+        offset - amp * exp(-(x - cen)^2 / (2 * sigma^2))
+    sigma is the standard deviation.
+    """
+    sigma = max(sigma, 1e-6)
+    return offset - amp * np.exp(-((x - cen) ** 2) / (2 * sigma ** 2))
 
 
 class LineFitter:
@@ -149,17 +156,17 @@ class LineFitter:
             return 0.0
         return 1.0 - ss_res / ss_tot
 
-    def fit_lorentzian(self, x: np.ndarray, y: np.ndarray, guess_center: float):
+    def fit_gaussian(self, x: np.ndarray, y: np.ndarray, guess_center: float):
         amp0 = max(np.max(y) - np.min(y), 0.01)
-        gamma0 = max((x.max() - x.min()) / 6.0, 0.5)
+        sigma0 = max((x.max() - x.min()) / 6.0, 0.5)
         offset0 = float(np.max(y))
-        p0 = [amp0, guess_center, gamma0, offset0]
+        p0 = [amp0, guess_center, sigma0, offset0]
         bounds = (
-            [0, x.min(), 0.1, 0.0],
+            [0, x.min(), 0.05, 0.0],
             [10 * amp0 + 1e-6, x.max(), (x.max() - x.min()), 10 * offset0 + 1e-6],
         )
-        popt, _ = curve_fit(lorentzian_dip, x, y, p0=p0, bounds=bounds, maxfev=10000)
-        return popt, self._r_squared(y, lorentzian_dip(x, *popt))
+        popt, _ = curve_fit(gaussian_dip, x, y, p0=p0, bounds=bounds, maxfev=10000)
+        return popt, self._r_squared(y, gaussian_dip(x, *popt))
 
     def fit_line(self, wavelength: np.ndarray, flux_norm: np.ndarray, line: SpectralLine, file_name: str) -> FitResult:
         lo, hi = line.rest_wavelength - line.window, line.rest_wavelength + line.window
@@ -177,30 +184,31 @@ class LineFitter:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             try:
-                popt, r2 = self.fit_lorentzian(x, y, line.rest_wavelength)
+                popt, r2 = self.fit_gaussian(x, y, line.rest_wavelength)
             except Exception as e:
                 return FitResult(
                     file_name=file_name,
                     line_name=line.name,
                     rest_wavelength=line.rest_wavelength,
-                    note=f"lorentzian fit failed to converge: {e}",
+                    note=f"gaussian fit failed to converge: {e}",
                 )
 
-        amp, cen, gamma, offset = popt
+        amp, cen, sigma, offset = popt
 
         if self.verbose:
-            print(f"    [{file_name}] {line.name}: lorentzian R^2={r2:.4f}")
+            print(f"    [{file_name}] {line.name}: gaussian R^2={r2:.4f} (sigma={sigma:.2f})")
 
         return FitResult(
             file_name=file_name,
             line_name=line.name,
             rest_wavelength=line.rest_wavelength,
-            fit_type="lorentzian",
+            fit_type="gaussian",
             center=float(cen),
             depth=float(amp),
-            width=float(gamma),
+            width=float(sigma),
             r_squared=float(r2),
             success=True,
+            continuum_offset=float(offset),
         )
 
 
@@ -236,8 +244,9 @@ class SpectrumPlotter:
 
             if result.success:
                 x_fine = np.linspace(x.min(), x.max(), 200)
-                y_fine = lorentzian_dip(x_fine, result.depth, result.center, result.width, np.max(y))
-                ax.plot(x_fine, y_fine, "-", color="tab:red", lw=1.5, label=f"{result.fit_type} fit")
+                y_fine = gaussian_dip(x_fine, result.depth, result.center, result.width,
+                                      result.continuum_offset)
+                ax.plot(x_fine, y_fine, "-", color="tab:red", lw=1.5, label="gaussian fit")
                 ax.axvline(result.center, color="tab:blue", ls=":", lw=1)
                 title = f"{line.name}\ncenter={result.center:.1f}\u00c5  R\u00b2={result.r_squared:.3f}"
             else:
@@ -282,51 +291,66 @@ class SpectrumProcessor:
 
 
 class BatchRunner:
+    """
+    Processes each FITS file and writes its own results CSV named
+    'gaussian_<filename>.csv' into out_dir, rather than one combined CSV.
+    """
+
     def __init__(self, processor: Optional[SpectrumProcessor] = None):
         self.processor = processor or SpectrumProcessor(LINE_CATALOG)
         self.all_results: list[FitResult] = []
 
-    def run(self, filepaths: list[str], out_csv: str = "line_fit_results.csv") -> pd.DataFrame:
+    def run(self, filepaths: list[str], out_dir: str = ".") -> pd.DataFrame:
+        os.makedirs(out_dir, exist_ok=True)
+
         for i, filepath in enumerate(filepaths, start=1):
-            print(f"[{i}/{len(filepaths)}] Processing {os.path.basename(filepath)} ...")
+            file_name = os.path.basename(filepath)
+            print(f"[{i}/{len(filepaths)}] Processing {file_name} ...")
             try:
-                self.all_results.extend(self.processor.process(filepath))
+                file_results = self.processor.process(filepath)
             except Exception as e:
                 print(f"    !! Failed to process {filepath}: {e}")
-                self.all_results.append(
+                file_results = [
                     FitResult(
-                        file_name=os.path.basename(filepath),
+                        file_name=file_name,
                         line_name="ALL",
                         rest_wavelength=np.nan,
                         note=f"file-level error: {e}",
                     )
-                )
-            self._save(out_csv)
+                ]
+
+            self.all_results.extend(file_results)
+            self._save_file_results(file_results, file_name, out_dir)
 
         return self._to_dataframe()
 
     def _to_dataframe(self) -> pd.DataFrame:
         return pd.DataFrame([r.to_dict() for r in self.all_results])
 
-    def _save(self, out_csv: str) -> None:
-        self._to_dataframe().to_csv(out_csv, index=False)
+    def _save_file_results(self, results: list[FitResult], file_name: str, out_dir: str) -> str:
+        base = os.path.splitext(file_name)[0]
+        out_path = os.path.join(out_dir, f"gaussian_{base}.csv")
+        pd.DataFrame([r.to_dict() for r in results]).to_csv(out_path, index=False)
+        print(f"    Saved results: {out_path}")
+        return out_path
 
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Automatically fit recurring spectral lines (occurrence >= 16/19) "
-                    "in one or more SDSS FITS spectra using a Lorentzian profile."
+        description="Automatically fit recurring spectral lines in one or more SDSS FITS "
+                    "spectra using a pure Gaussian profile."
     )
     parser.add_argument("files", nargs="*", help="Path(s) to FITS file(s)")
     parser.add_argument("--folder", type=str, default=None,
                         help="Folder containing .fits files to process (all files in it)")
-    parser.add_argument("--out", type=str, default="line_fit_results.csv",
-                        help="Output CSV path (default: line_fit_results.csv)")
+    parser.add_argument("--out-dir", type=str, default=".",
+                        help="Directory to write per-file 'gaussian_<filename>.csv' results into "
+                             "(default: current directory)")
     parser.add_argument("--plots-dir", type=str, default=None,
                         help="If given, save a PNG per file (spectrum + fitted line panels) "
                              "into this folder. Omit this flag to skip plotting.")
     parser.add_argument("--verbose", action="store_true",
-                        help="Print the R^2 of the Lorentzian fit for every line.")
+                        help="Print the R^2 (and sigma) of the Gaussian fit for every line.")
     return parser.parse_args()
 
 
@@ -345,13 +369,13 @@ def main():
     fitter = LineFitter(verbose=args.verbose)
     processor = SpectrumProcessor(LINE_CATALOG, fitter=fitter, plotter=plotter)
     runner = BatchRunner(processor=processor)
-    df = runner.run(filepaths, out_csv=args.out)
+    df = runner.run(filepaths, out_dir=args.out_dir)
 
     print("\n=== Summary ===")
     print(f"Files processed : {df['file_name'].nunique()}")
     print(f"Total line fits : {len(df)}")
     print(f"Successful fits : {int(df['success'].sum())}")
-    print(f"Results saved to: {args.out}")
+    print(f"Results saved to: {args.out_dir}/gaussian_<filename>.csv (one CSV per input file)")
     if args.plots_dir:
         print(f"Plots saved to  : {args.plots_dir}/")
 
