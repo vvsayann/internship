@@ -222,7 +222,8 @@ outline.md.pdf
 commands.txt
 commong spectral lines.txt
 Spectra 2
-Week2/*.CSV
-Week2/*.docx
+week_2/*.CSV
+week_2/*.docx
+week_3/*.docx
 
-Week1/*.docx
+week_1/*.docx
