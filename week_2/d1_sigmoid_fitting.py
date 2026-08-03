@@ -1,66 +1,11 @@
 import os
-from typing import Tuple, Sequence
 
-import numpy as np
-from scipy.signal import find_peaks
 import matplotlib.pyplot as plt
-from pymultifit.fitters.backend.baseFitter import BaseFitter
+import numpy as np
 from astropy.io import fits
 
-
-def sigmoid(x, k, x0):
-    return 1.0 / (1.0 + np.exp(-k * (x - x0)))
-
-
-def line(x, a, b):
-    return a * x + b
-
-
-def blended_model(x, transition, sharpness, a1, b1, a2, b2):
-    s = sigmoid(x, transition, sharpness)
-    return s * line(x, a1, b1) + (1 - s) * line(x, a2, b2)
-
-
-class LinesWithSigmoid(BaseFitter):
-    def __init__(self, x_values, y_values, max_iterations=1000):
-        super().__init__(x_values, y_values, max_iterations)
-        self.n_par = 6
-
-    def fit_boundaries(self) -> Tuple[Sequence[float], Sequence[float]]:
-        x_min, x_max = self.x_values.min(), self.x_values.max()
-        y_min, y_max = self.y_values.min(), self.y_values.max()
-
-        x_span = x_max - x_min
-        y_span = y_max - y_min
-
-        slope_bound = (y_span / x_span) * 10 if x_span > 0 else np.inf
-        intercept_bound = 10 * max(abs(y_min), abs(y_max), 1.0)
-
-        lb = (-1.0, x_min, -slope_bound, -intercept_bound, -slope_bound, -intercept_bound)
-        ub = (1.0, x_max, slope_bound, intercept_bound, slope_bound, intercept_bound)
-        return lb, ub
-
-    @staticmethod
-    def fitter(x, params) -> np.ndarray:
-        return blended_model(x, *params)
-
-
-def raw_gaussian(x, amplitude, mu, sigma):
-    return amplitude * np.exp(-0.5 * ((x - mu) / sigma) ** 2)
-
-
-class GaussianFitter(BaseFitter):
-    def __init__(self, x_values, y_values, max_iterations=1000):
-        super().__init__(x_values=x_values, y_values=y_values, max_iterations=max_iterations)
-        self.n_par = 3
-
-    def fit_boundaries(self):
-        return (0, -np.inf, 0), (np.inf, np.inf, np.inf)
-
-    @staticmethod
-    def fitter(x, params):
-        amplitude, mu, sigma = params
-        return raw_gaussian(x, amplitude, mu, sigma)
+from src.internship.fitters import GaussianFitter
+from src.internship.utilities import raw_gaussian, detect_features, blended_model, fit_continuum , match_lines
 
 
 class GaussianFitterNegativeAmplitude(GaussianFitter):
@@ -109,21 +54,6 @@ KNOWN_LINES = {
 }
 
 
-def fit_continuum(wavelength, flux, p0=None):
-    cont = LinesWithSigmoid(wavelength, flux)
-    if p0 is None:
-        p0 = (0.001, float(np.median(wavelength)), 0.0, float(np.median(flux)), 0.0, float(np.median(flux)))
-    cont.fit(p0=[p0])
-    return cont
-
-
-def detect_features(residual, prominence_sigma=4.0):
-    noise = np.std(residual)
-    peaks, _ = find_peaks(residual, prominence=prominence_sigma * noise)
-    dips, _ = find_peaks(-residual, prominence=prominence_sigma * noise)
-    return peaks, dips
-
-
 def fit_local_feature(wavelength, residual, idx, window=20, is_peak=True):
     lo, hi = max(0, idx - window), min(len(wavelength), idx + window)
     xw, yw = wavelength[lo:hi], residual[lo:hi]
@@ -141,21 +71,7 @@ def fit_local_feature(wavelength, residual, idx, window=20, is_peak=True):
     return {"mu": mu, "amplitude": amplitude, "width": sigma, "fwhm": 2.3548 * sigma, "profile": "gaussian"}
 
 
-def match_lines(fitted_centers, known_lines=KNOWN_LINES, max_shift_fraction=0.02, steps=4001):
-    known_wl = np.array(list(known_lines.values()))
-    known_names = list(known_lines.keys())
-    best = None
-    for z in np.linspace(-max_shift_fraction, max_shift_fraction, steps):
-        shifted = known_wl * (1 + z)
-        matches, total_err = [], 0.0
-        for mu in fitted_centers:
-            j = int(np.argmin(np.abs(shifted - mu)))
-            err = abs(shifted[j] - mu)
-            total_err += err
-            matches.append((known_names[j], shifted[j], mu, err))
-        if best is None or total_err < best[0]:
-            best = (total_err, z, matches)
-    return best
+
 
 
 def analyze_spectrum(wavelength, flux, mask=None, prominence_sigma=4.0, window=20, max_match_error=5.0):
@@ -222,7 +138,8 @@ def make_synthetic_spectrum():
 
 if __name__ == "__main__":
     if os.path.exists(FITS_PATH):
-        wavelength, flux = load_fits_spectrum(FITS_PATH, table_hdu=1, wave_col="loglam", flux_col="flux", wave_in_log10=True)
+        wavelength, flux = load_fits_spectrum(FITS_PATH, table_hdu=1, wave_col="loglam", flux_col="flux",
+                                              wave_in_log10=True)
     else:
         print(f"'{FITS_PATH}' not found -- using synthetic demo data.\n")
         wavelength, flux = make_synthetic_spectrum()
@@ -255,7 +172,7 @@ if __name__ == "__main__":
             if wavelength.min() <= expected_mu <= wavelength.max():
                 axes[1].axvline(expected_mu, color="green", ls=":", alpha=0.5)
                 axes[1].annotate(name, (expected_mu, axes[1].get_ylim()[1] * 0.9),
-                                  fontsize=7, color="green", ha="center")
+                                 fontsize=7, color="green", ha="center")
 
     for r in result["lines"]:
         if r.get("identified_as") is None:
@@ -263,7 +180,7 @@ if __name__ == "__main__":
         color = "royalblue" if r["type"] == "absorption" else "darkorange"
         axes[1].axvline(r["mu"], color=color, ls="--", alpha=0.7)
         axes[1].annotate(r["identified_as"], (r["mu"], r["amplitude"]),
-                          textcoords="offset points", xytext=(0, 8), fontsize=8, ha="center")
+                         textcoords="offset points", xytext=(0, 8), fontsize=8, ha="center")
     axes[1].axhline(0, color="black", lw=0.5)
     axes[1].legend()
     plt.tight_layout()

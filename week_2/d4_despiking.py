@@ -2,7 +2,8 @@ import sys
 import numpy as np
 import matplotlib.pyplot as plt
 from astropy.io import fits
-from astropy.stats import mad_std
+
+from src.internship.utilities import detect_and_remove_spikes
 
 INPUT_FILE = sys.argv[1] if len(sys.argv) > 1 else "spectrum.fits"
 OUTPUT_FILE = INPUT_FILE.replace(".fits", "_despiked.fits")
@@ -26,44 +27,6 @@ def load_spectrum(path):
             data = np.array(hdul[HDU_INDEX].data, dtype=float)
     return data, header
 
-
-def detect_spikes(data, window=WINDOW, sigma_thresh=SIGMA_THRESH, gap=GAP):
-    n = len(data)
-    spikes = np.zeros(n, dtype=bool)
-    for i in range(n):
-        lo, hi = max(0, i - window), min(n, i + window + 1)
-        buf_lo, buf_hi = max(lo, i - gap), min(hi, i + gap + 1)
-        local = np.concatenate([data[lo:buf_lo], data[buf_hi:hi]])
-        if local.size < 4:
-            continue
-        med = np.median(local)
-        robust_std = mad_std(local)
-        if robust_std > 0 and abs(data[i] - med) > sigma_thresh * robust_std:
-            spikes[i] = True
-    return spikes
-
-
-def remove_spikes(data, spikes):
-    clean = data.copy()
-    idx = np.arange(len(data))
-    if spikes.any():
-        clean[spikes] = np.interp(idx[spikes], idx[~spikes], data[~spikes])
-    return clean
-
-
-def detect_and_remove_spikes(data, window=WINDOW, sigma_thresh=SIGMA_THRESH,
-                              gap=GAP, passes=PASSES):
-    all_spikes = np.zeros(len(data), dtype=bool)
-    clean = data.copy()
-    for _ in range(passes):
-        new_spikes = detect_spikes(clean, window, sigma_thresh, gap) & ~all_spikes
-        if not new_spikes.any():
-            break
-        all_spikes |= new_spikes
-        clean = remove_spikes(data, all_spikes)
-    return clean, all_spikes
-
-
 def save_result(path, data, header):
     if IS_TABLE:
         with fits.open(INPUT_FILE) as hdul:
@@ -72,6 +35,7 @@ def save_result(path, data, header):
     else:
         hdu = fits.PrimaryHDU(data=data, header=header)
         hdu.writeto(path, overwrite=True)
+
 
 
 def plot_result(original, clean, spikes):
