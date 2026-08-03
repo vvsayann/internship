@@ -17,7 +17,7 @@ class FitResult:
     r_squared: float = np.nan
     success: bool = False
     note: str = ""
-    continuum_offset: float = np.nan  # internal only: used for plotting, not exported to CSV
+    continuum_offset: float = np.nan
 
     def to_dict(self) -> dict:
         return {

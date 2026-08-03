@@ -25,28 +25,6 @@ except ImportError as e:
         "pip install astropy --break-system-packages"
     ) from e
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 def parse_args():
     parser = argparse.ArgumentParser(
         description="Automatically fit recurring spectral lines (occurrence >= 16/19) "

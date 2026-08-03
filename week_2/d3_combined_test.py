@@ -13,7 +13,7 @@ import matplotlib
 
 from src.internship.fit_result import FitResult
 from src.internship.spectrum import SpectrumPlotter, SpectralLine, SpectrumProcessor, LINE_CATALOG
-from src.internship.utilities import gaussian_dip, sigmoid_dip , voigt_dip
+from src.internship.utilities import gaussian_dip, sigmoid_dip , voigt_dip , lorentzian_dip , _voigt_peak_normalized
 from src.internship.fitters import LineFitter
 from src.internship.spectrum import BatchRunner
 
@@ -29,34 +29,6 @@ except ImportError as e:
         "astropy is required to read FITS files. Install with: "
         "pip install astropy --break-system-packages"
     ) from e
-
-
-def lorentzian_dip(x, amp, cen, gamma, offset):
-    return offset - amp * (gamma ** 2 / ((x - cen) ** 2 + gamma ** 2))
-
-
-def _voigt_peak_normalized(x, cen, sigma, gamma):
-    sigma = max(sigma, 1e-6)
-    z = ((x - cen) + 1j * gamma) / (sigma * np.sqrt(2))
-    profile = np.real(wofz(z))
-    peak = np.real(wofz(1j * gamma / (sigma * np.sqrt(2))))
-    peak = peak if peak > 1e-12 else 1e-12
-    return profile / peak
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -88,7 +60,7 @@ def main():
     plotter = SpectrumPlotter(args.plots_dir) if args.plots_dir else None
     processor = SpectrumProcessor(LINE_CATALOG, plotter=plotter)
     runner = BatchRunner(processor=processor)
-    df = runner.run(filepaths, out_csv=args.out)
+    df = runner.run(filepaths)
 
     print("\n=== Summary ===")
     print(f"Files processed : {df['file_name'].nunique()}")
