@@ -1,8 +1,9 @@
+import os
 from astropy.io import fits
 import numpy as np
 import matplotlib.pyplot as plt
 
-hdul = fits.open('spec-0289-51990-0204.fits')
+hdul = fits.open(r'C:\Users\Ayank\OneDrive\Desktop\internship\spectra_files\spec-0289-51990-0204.fits')
 
 header = hdul[0].header
 data = hdul['COADD'].data
