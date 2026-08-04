@@ -1,0 +1,144 @@
+\documentclass[12pt]{article}
+
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath, amssymb}
+\usepackage{booktabs}
+\usepackage{siunitx}
+\usepackage{enumitem}
+\usepackage{setspace}
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage{xcolor}
+
+\usepackage{multirow}
+\usepackage{hyperref}
+\usepackage{cleveref}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue!55!black,
+  citecolor=blue!55!black,
+  urlcolor=blue!55!black,
+}
+
+\captionsetup{font=small, labelfont=bf, labelsep=colon}
+
+\titleformat{\section}{\normalfont\Large\bfseries\color{blue!30!black}}{\thesection}{1em}{}
+\titleformat{\subsection}{\normalfont\large\bfseries\color{blue!25!black}}{\thesubsection}{1em}{}
+
+\pagestyle{fancy}
+\setlength{\headheight}{14pt}
+\fancyhf{}
+\fancyhead[R]{\small SDSS OB Star Spectral Line Analysis}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+\setcounter{tocdepth}{2}
+\setcounter{secnumdepth}{2}
+
+\title{\textbf{SDSS OB Star Spectral Line Analysis}\\
+\large LaTeX Progress Report}
+\author{Ayan Kashif \\ \small Reg. No: 240601050}
+\date{Submitted to:\\Mr. Syed Ali Mohsin Bukhari}
+
+\begin{document}
+
+\maketitle
+\thispagestyle{empty}
+
+\begin{center}
+
+\end{center}
+ 
+\clearpage
+\tableofcontents
+\clearpage
+\listoftables
+\clearpage
+ 
+
+\section{Objective}
+\label{sec:objective}
+ 
+The objective of this study is to systematically identify and catalogue spectral absorption features present in a sample of 19 SDSS (Sloan Digital Sky Survey) OB-type stellar spectra, and to determine a common ``skeleton'' set of spectral lines that can be used as a reference template for classifying and examining future, previously unseen stellar spectra of the same class.
+ 
+
+\section{Theoretical Background: OB Stars}
+\label{sec:theory}
+ 
+OB stars are among the hottest and most massive stars on the main sequence, with effective surface temperatures typically ranging from roughly 10{,}000\,K to over 30{,}000\,K. At these temperatures, hydrogen is largely ionized in the stellar photosphere, which suppresses the strength of the Balmer series relative to cooler stars, while neutral helium (He\,\textsc{i}) transitions become strong and are often the dominant absorption features in the optical spectrum. This is precisely the pattern observed in the sample analysed here: the He\,\textsc{i} series ($\lambda \approx 4026, 4471, 4713, 4921, 5015, 5876$\,\r{A}, among others) appears almost universally, while hydrogen features are comparatively weak, blended, or absent.
+ 
+Absorption lines form when photons emerging from the deeper, hotter layers of a star are absorbed by atoms and ions in the cooler outer photosphere, at wavelengths corresponding to the energy difference between two electronic states of that species. The depth, width, and shape of each absorption feature (the ``line profile'') encode physical information about the star, including its temperature, surface gravity, rotational velocity, and chemical composition. Fitting these profiles mathematically is therefore a key step in quantitative spectroscopy.
+ 
+
+\section{Methodology}
+\label{sec:methodology}
+ 
+This week's work progressively refined the spectral line-fitting pipeline: beginning with continuum and sigmoid modelling, advancing to Gaussian-based threshold detection of common absorption features, and concluding with comparative fitter testing and Voigt profile fitting on cleaned spectra.
+ 
+\subsection{Continuum and Sigmoid Fitting}
+ 
+Continuum fitting was applied to multiple data sets to examine the resulting curve shapes and their physical significance, modelling a smooth background using two blended sigmoid components. Sigmoid fitting was then applied directly to the spectrum graph across the previously marked spectral lines, yielding a comparable curve and confirming consistency between the two approaches.
+ 
+\subsection{Gaussian Fitting and Threshold Detection}
+ 
+Sigmoid and Gaussian fitters were used to determine the loglam (wavelength) values corresponding to absorption dips. A threshold of $y = -4$ was set as the primary cutoff for identifying significant dips, while the $-2$ to $-4$ range was reviewed as a secondary, lower-priority band. This method was applied consistently across all 19 spectral files in the dataset, from which the wavelengths and spectral lines common to all files were extracted. The identified lines from each spectrum were compared against one another to isolate wavelengths that recur consistently across the sample; this shared set now serves as a reference skeleton, allowing new star data to be analysed more efficiently without re-deriving these lines from scratch.
+ 
+\subsection{Cross-Fitter Comparison and Voigt Fitting}
+ 
+Gaussian, Voigt, and Lorentzian fitters were compared across several files to evaluate the accuracy and consistency of their outputs. While most fits were accurate, a few showed abnormalities, largely attributable to the common spectral lines being applied as a fixed benchmark rather than adjusted per file. Based on these results, the focus shifted to Voigt profile fitting, which combines Gaussian and Lorentzian broadening for a more accurate representation of line shapes. Prior to fitting, the spectrum was cleaned of artifacts and noise and cropped to 7500\,\r{A} to restrict the analysis to the relevant wavelength range. Voigt fitting on the cleaned, cropped spectrum is currently in progress.
+ 
+
+\section{Results --- Common Spectral Lines}
+\label{sec:results}
+ 
+Across the 19 spectra analysed, a consistent set of absorption features recurs in the large majority of the sample. These lines form the recommended ``skeleton'' template referred to in \Cref{sec:methodology}, and are summarized in \Cref{tab:common-lines}.
+ 
+\begin{table}[htbp]
+\centering
+\caption{Common spectral absorption lines identified across 19 SDSS OB-type stellar spectra.}
+\label{tab:common-lines}
+\begin{tabular}{@{}p{0.16\textwidth} p{0.22\textwidth} p{0.34\textwidth} c@{}}
+\toprule
+\textbf{Approx. $\lambda$ (\r{A})} & \textbf{Line ID} & \textbf{Species / Transition} & \textbf{Occurrence} \\
+\midrule
+3812--3825 & He\,\textsc{i} & Neutral Helium & 17/19 \\
+$\sim$3890 & H8 blended with He\,\textsc{i} & Balmer + He\,\textsc{i} & 18/19 \\
+3934--3970 & Ca\,\textsc{ii} H (often with H$\varepsilon$) & Singly ionized Calcium & 15/19 \\
+4025--4032 & He\,\textsc{i} & Neutral Helium & 18/19 \\
+4470--4477 & He\,\textsc{i} & Neutral Helium & 19/19 \\
+4710--4720 & He\,\textsc{i} & Neutral Helium & 16/19 \\
+4920--4930 & He\,\textsc{i} & Neutral Helium & 16/19 \\
+5012--5018 & He\,\textsc{i} & Neutral Helium & 15/19 \\
+5577--5581 & O\,\textsc{i} (sky/telluric emission) & Neutral Oxygen (night-sky line) & 15/19 \\
+5874--5879 & He\,\textsc{i} & Neutral Helium & 13/19 \\
+\bottomrule
+\end{tabular}
+\end{table}
+ 
+The He\,\textsc{i} feature near 4470--4477\,\r{A} is the single most reliable diagnostic line in the dataset, appearing in all 19 spectra without exception, and is therefore recommended as the primary reference line for any future template-matching or classification routine. The 3890\,\r{A} and 4025--4032\,\r{A} He\,\textsc{i} features are similarly near-universal and provide strong secondary anchors.
+ 
+
+\section{Summary and Next Steps}
+\label{sec:summary}
+ 
+Overall, the week's progress moved from foundational continuum and sigmoid fitting to a validated reference set of common spectral lines, followed by comparative fitter analysis and an ongoing transition to Voigt fitting for improved accuracy. Next steps include:
+ 
+\begin{itemize}[leftmargin=*]
+  \item Completing the Voigt fits on the remaining spectral files.
+  \item Comparing Voigt fitting results against the earlier Gaussian benchmarks.
+  \item Refining the common-line skeleton (\Cref{tab:common-lines}) as more spectra are processed.
+\end{itemize}
+
+
+
+
+
+
+
+\end{document}
