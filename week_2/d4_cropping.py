@@ -3,8 +3,8 @@ import glob
 
 from src.internship.utilities import crop_and_check
 
-INPUT_FOLDER = r"C:\Users\Ayank\OneDrive\Desktop\internship\spectra_files"
-OUTPUT_DIR = os.path.join(INPUT_FOLDER, "processed_spectrum")
+INPUT_FOLDER = r"C:\Users\Ayank\OneDrive\Desktop\internship\spectra_files\despiked_spectrum"
+OUTPUT_DIR = r"C:\Users\Ayank\OneDrive\Desktop\internship\spectra_files\processed_spectrum"
 
 
 def main():

@@ -1,5 +1,2 @@
-Some codes might need running through the terminal for example
-python D4_despiking.py spec-0266-51630-0098.fits
 
-Otherwise, it will give directory / file error, use the terminal to avoid any inconvenience or issues.
 

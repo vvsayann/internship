@@ -131,7 +131,16 @@ class LineFitter:
                 note="all fits failed to converge",
             )
 
-        fit_type, popt, r2 = max(candidates, key=lambda r: r[2])
+        # Always prefer voigt if it converged; only fall back to the
+        # best-scoring alternative if voigt itself failed to converge.
+        voigt_candidates = [c for c in candidates if c[0] == "voigt"]
+        if voigt_candidates:
+            fit_type, popt, r2 = voigt_candidates[0]
+        else:
+            fit_type, popt, r2 = max(candidates, key=lambda r: r[2])
+            if self.verbose:
+                print(f"    [{file_name}] {line.name}: voigt failed to converge, "
+                      f"falling back to {fit_type}")
 
         if fit_type == "voigt":
             amp, cen, sigma, gamma, offset = popt

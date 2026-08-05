@@ -150,25 +150,27 @@ class SpectrumProcessor:
 
         all_results = [self.fitter.fit_line(wavelength, flux_norm, line, file_name) for line in self.line_catalog]
 
-        kept_lines, kept_results = [], []
+
+        for result in all_results:
+            if result.success and result.r_squared is not None and result.r_squared < self.min_r2:
+                result.success = False
+                result.note = f"R^2 {result.r_squared:.3f} below threshold {self.min_r2}"
+
+
+        plot_lines, plot_results = [], []
         for line, result in zip(self.line_catalog, all_results):
-            if (
-                    result.success
-                    and result.fit_type == "voigt"  # <-- only keep voigt fits
-                    and result.r_squared is not None
-                    and result.r_squared >= self.min_r2
-            ):
-                kept_lines.append(line)
-                kept_results.append(result)
+            if result.success:
+                plot_lines.append(line)
+                plot_results.append(result)
 
         if self.plotter is not None:
-            if kept_results:
-                png_path = self.plotter.plot(wavelength, flux_norm, kept_lines, kept_results, file_name)
+            if plot_results:
+                png_path = self.plotter.plot(wavelength, flux_norm, plot_lines, plot_results, file_name)
                 print(f"    Saved plot: {png_path}")
             else:
-                print(f"    No voigt fits met R^2 >= {self.min_r2} for {file_name} — skipping plot")
+                print(f"    No lines met R^2 >= {self.min_r2} for {file_name} — skipping plot")
 
-        return kept_results
+        return all_results
 
 
 class ContinuumNormalizer:

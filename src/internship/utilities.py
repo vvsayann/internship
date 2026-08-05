@@ -94,7 +94,7 @@ def crop_and_check(filepath, output_dir):
 
         os.makedirs(output_dir, exist_ok=True)
         base = os.path.splitext(os.path.basename(filepath))[0]
-        out_fits = os.path.join(output_dir, f"{base}_cropped7500.fits")
+        out_fits = os.path.join(output_dir, f"{base}.fits")
         new_hdu = fits.BinTableHDU(data=trimmed_data, header=header)
         hdul_out = fits.HDUList()
         for i, hdu in enumerate(hdul):
@@ -115,7 +115,7 @@ def crop_and_check(filepath, output_dir):
         axes[1].set_xlabel("Wavelength (A)")
 
         plt.tight_layout()
-        out_png = os.path.join(output_dir, f"{base}_cropped7500_check.png")
+        out_png = os.path.join(output_dir, f"{base}.png")
         plt.savefig(out_png, dpi=150)
         plt.close(fig)
         print(f"  Saved check plot: {out_png}")

@@ -1,0 +1,245 @@
+spec-0266-51630-0098.fits
+3891 | H[zeta]
+3836 | Ca II K
+3968 | Ca II H
+4028 | He[I]
+4473 | He[I]
+4710 | He[I] 
+4922 | He[I]
+5017 | He[I]
+5878 | He[I] broad
+6682 | He[I]
+6082 | He[I]	
+
+
+spec-0289-51990-0204.fits
+3802 | H10 balmer
+3810 | He [1]
+3822 | He [I]
+3889 | H8 Balmer Series 
+3836 | ignored 
+3968 | Ca II H
+4028 | no dip 
+4473 | He[I]
+4710 | ignored
+5463 | no line
+5580 | no line
+5877 | He[I]
+5890 | Na[I]
+
+spec-0267-51608-0271.fits
+3825 | He [I] or H9 
+3889 | H8 
+3964 | Ca II H
+4028 | HE[I]
+4474 | He[I]
+4924 | He[I]
+5575 | O[I]
+5876 | He[I]
+9000 | no line 
+
+spec-0301-51942-0401.fits
+3817 | He[I]
+3872 | H8 
+3890 | H8 + He[I]
+3970 | Hydrogen balmer H3
+4026 | He[I]
+4103 | H Delta
+4338 | H gamma
+4386 | He[I]
+4470 | He[I]
+4650 | C[III]
+4711 | He[I]
+4860 | H beta
+6562 | H alpha
+
+spec-0301-51942-0431.fits
+3820 | He[I]
+3890 | H8 + He[I]
+4028 | He[I]
+4390 | He[I]
+4472 | He[I]
+4712 | He[I]
+4920 | He[I]
+5018 | He[I]
+5876 | He[I]
+6566 | H alpha
+6682 | He[I]
+7066 | He[I]
+
+spec-0309-51994-0012.fits
+3820 | He[I]
+3890 | H8 and He[I]
+3970 | H3 
+4028 | He[I]
+4120 | He[I]
+4473 | He[I]
+4930 | He[I]
+5018 | He[I]
+5580 | O[I]
+5876 | He[I]
+7855 | no line 
+8349 | possible hydrogen paschen series pa 24 depending upon res
+8831 | Hydrogen paschen series higher order
+8885 and 8921 same as last 2
+
+spec-0309-51994-0570.fits
+3812 | He[I]
+3820 | He[I]
+4030 | He[I]
+4475 | He[I]
+5571 | O[I]
+8348 , 8960 higher order paschen 
+
+spec-0310-51990-0393.fits
+3812 | He[I]
+3850 | H9
+3890 | H8 + He[I]
+3940 | Ca[II] K
+4110 | H delta
+4395 | He[I]
+4470 | He[I]
+4710 | He[I]
+5017 | He[I]
+5580 | O[I]
+5874 | He[I]
+7853 | no line
+8430 , 8771 | higher order paschen series 
+
+spec-0333-52313-0199.fits
+3815 | He[I]
+3887 | H8 and He[I]
+3970 | H3 with Ca[II]H
+4025 | He[I]
+4390 | He[I]
+4470 | He[I]
+4714 | He[I]
+4920 | He[I]
+5014 | He[I]
+5580 | O[I]
+6866 | telluric, O2 B band
+7716, 7967 | same as last
+higher than 8k | paschen series 
+
+
+spec-0339-51692-0617.fits
+3842 | H9
+3890 | H8 and He[I]
+3967 | Ca[II]H + H3
+4026 | He[I]
+4126 | He[I]
+4380 | He[I]
+4470 | He[I]
+4715 | He[I]
+4924 | He[I]
+5016 | He[I]
+5581 | O[I]
+5890 | Na[I] D2
+6301 | O[I]
+7919, 7993 | telluric 
+Higher | Paschen series 
+
+spec-0340-51990-0025.fits
+3819 | He[I]
+3894 | H8 and He[I]
+4028 | He[I]
+4390 | He[I]
+4470 | He[I]
+4717 | He[I]
+4924 | He[I]
+5012 | He[I]
+5579 | O[I]
+5879 | He[I] D3
+6681 | He[I]
+7.4-8k | Telluric 
+Higher than 8k |  Paschen
+
+spec-0349-51699-0564.fits
+3818 | He[I]
+4085 | Si IV
+4118 | He[I]
+4470 | He[I]
+5577 | O[I]
+
+spec-0351-51695-0434.fits
+3820 | He[I]
+3826 | H9
+3890 | H8 and He[I]
+3955 | Ca[II]H and H3
+4025 | He[I]
+4050 | N[II] 
+4473 | He[I]
+4600 | Nv / N[II]
+4922 | He[I]
+5577 | O[I]
+5876 | He[I] D3
+6303 | O[I]
+6680 | He[I]
+7.4-8k 7-8k | Telluric 
+Higher than 8k |  Paschen
+
+spec-0354-51792-0233.fits
+3812 | He[I]
+3827 | H9
+3890 | H8 and He[I]
+4032 | He[I]
+4391 | He[I]
+4470 | He[I]
+4714 | He[I]
+4924 | He[I]
+5017 | He[I]
+5578 | O[I]
+6679 | He[I]
+7068 | He[I]
+
+spec-0362-51999-0264.fits
+3821 | He[I]
+3840 | H9
+3872 | H8
+3882 | He[I]
+3963 | Ca[II] H + H3
+4009 | He[I] weak
+4027 | He[I]
+4122 | He[I]
+4390 | He[I]
+4472 | He[I]
+4922 | He[I]
+5017 | He[I]
+5577 | O[I]
+5879 | He[I]
+6300 | O[I]
+6363 | O[I]
+
+spec-0375-52140-0345.fits
+3841 | H9
+3890 | H8 + He[I]
+3934 | Ca[II] K
+4025 | He[I]
+4474 | He[I]
+4921 | He[I]
+5017 | He[I]
+5578 | O[I]
+6680 | He[I]
+
+spec-0382-51816-0614.fits
+3830 | H9
+3887 | H8 and He[I]
+3890 | H8 and He[I]
+4025 | He[I]
+4392 | He[I]
+4477 | He[I]
+4716 | He[I]
+4920 | He[I]
+5014 | He[I]
+5876 | He[I] D3
+6684 | He[I]
+
+spec-0405-51816-0115.fits
+3817 | He[I]
+4019 | He[I]
+4472 | He[I]
+5877 | He[I] D3
+6680 | He[I]
+
+
+
