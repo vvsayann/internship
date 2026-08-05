@@ -1,0 +1,2 @@
+file_name,line_name,rest_wavelength,fit_type,fitted_center,depth,sigma_gaussian_width,gamma_voigt,r_squared,success,note
+spec-0351-51695-0434_cropped7500.fits,He I 4473,4473.0,voigt,4471.791254720347,0.26560855348394863,0.050000000016474706,4.673436180715983,0.8759174331143929,True,

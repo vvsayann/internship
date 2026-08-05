@@ -136,23 +136,39 @@ class SpectrumProcessor:
         line_catalog: list[SpectralLine],
         fitter: Optional[LineFitter] = None,
         plotter: Optional[SpectrumPlotter] = None,
+        min_r2: float = 0.0,
     ):
         self.line_catalog = line_catalog
         self.fitter = fitter or LineFitter()
         self.plotter = plotter
+        self.min_r2 = min_r2
 
     def process(self, filepath: str) -> list[FitResult]:
         file_name = os.path.basename(filepath)
         wavelength, flux, _ivar = SpectrumReader.load(filepath)
         flux_norm = ContinuumNormalizer.normalize(wavelength, flux)
 
-        results = [self.fitter.fit_line(wavelength, flux_norm, line, file_name) for line in self.line_catalog]
+        all_results = [self.fitter.fit_line(wavelength, flux_norm, line, file_name) for line in self.line_catalog]
+
+        kept_lines, kept_results = [], []
+        for line, result in zip(self.line_catalog, all_results):
+            if (
+                    result.success
+                    and result.fit_type == "voigt"  # <-- only keep voigt fits
+                    and result.r_squared is not None
+                    and result.r_squared >= self.min_r2
+            ):
+                kept_lines.append(line)
+                kept_results.append(result)
 
         if self.plotter is not None:
-            png_path = self.plotter.plot(wavelength, flux_norm, self.line_catalog, results, file_name)
-            print(f"    Saved plot: {png_path}")
+            if kept_results:
+                png_path = self.plotter.plot(wavelength, flux_norm, kept_lines, kept_results, file_name)
+                print(f"    Saved plot: {png_path}")
+            else:
+                print(f"    No voigt fits met R^2 >= {self.min_r2} for {file_name} — skipping plot")
 
-        return results
+        return kept_results
 
 
 class ContinuumNormalizer:
