@@ -8,8 +8,16 @@ from pymultifit.fitters.backend import BaseFitter
 from scipy.optimize import curve_fit
 
 from .fit_result import FitResult
-from .spectrum import SpectralLine
-from .utilities import gaussian_dip, raw_gaussian, sigmoid_dip, blended_model
+from .spectral_line import SpectralLine
+from .utilities import gaussian_dip, raw_gaussian, sigmoid_dip, blended_model, voigt_dip
+
+
+def fit_continuum(wavelength, flux, p0=None):
+    cont = LinesWithSigmoid(wavelength, flux)
+    if p0 is None:
+        p0 = (0.001, float(np.median(wavelength)), 0.0, float(np.median(flux)), 0.0, float(np.median(flux)))
+    cont.fit(p0=[p0])
+    return cont
 
 
 class GaussianFitter(BaseFitter):
@@ -27,8 +35,9 @@ class GaussianFitter(BaseFitter):
 
 
 class LineFitter:
-    def __init__(self, min_points: int = 8):
+    def __init__(self, min_points: int = 8, verbose: bool = False):
         self.min_points = min_points
+        self.verbose = verbose
 
     @staticmethod
     def _r_squared(y_obs: np.ndarray, y_fit: np.ndarray) -> float:
@@ -62,12 +71,27 @@ class LineFitter:
         popt, _ = curve_fit(sigmoid_dip, x, y, p0=p0, bounds=bounds, maxfev=10000)
         return popt, self._r_squared(y, sigmoid_dip(x, *popt))
 
+    def fit_voigt(self, x: np.ndarray, y: np.ndarray, guess_center: float):
+        amp0 = max(np.max(y) - np.min(y), 0.01)
+        sigma0 = max((x.max() - x.min()) / 6.0, 0.5)
+        gamma0 = sigma0
+        offset0 = float(np.max(y))
+        p0 = [amp0, guess_center, sigma0, gamma0, offset0]
+        bounds = (
+            [0, x.min(), 0.05, 0.05, 0.0],
+            [10 * amp0 + 1e-6, x.max(), (x.max() - x.min()), (x.max() - x.min()), 10 * offset0 + 1e-6],
+        )
+        popt, _ = curve_fit(voigt_dip, x, y, p0=p0, bounds=bounds, maxfev=10000)
+        return popt, self._r_squared(y, voigt_dip(x, *popt))
+
     def fit_line(self, wavelength: np.ndarray, flux_norm: np.ndarray, line: SpectralLine, file_name: str) -> FitResult:
         lo, hi = line.rest_wavelength - line.window, line.rest_wavelength + line.window
         mask = (wavelength >= lo) & (wavelength <= hi)
         x, y = wavelength[mask], flux_norm[mask]
 
         if len(x) < self.min_points:
+            if self.verbose:
+                print(f"    [{file_name}] {line.name}: SKIPPED (insufficient data points in window)")
             return FitResult(
                 file_name=file_name,
                 line_name=line.name,
@@ -91,16 +115,35 @@ class LineFitter:
             except Exception:
                 pass
 
+            try:
+                popt, r2 = self.fit_voigt(x, y, line.rest_wavelength)
+                candidates.append(("voigt", popt, r2))
+            except Exception:
+                pass
+
         if not candidates:
+            if self.verbose:
+                print(f"    [{file_name}] {line.name}: FAILED (all fits failed to converge)")
             return FitResult(
                 file_name=file_name,
                 line_name=line.name,
                 rest_wavelength=line.rest_wavelength,
-                note="both fits failed to converge",
+                note="all fits failed to converge",
             )
 
         fit_type, popt, r2 = max(candidates, key=lambda r: r[2])
-        amp, cen, width_param, offset = popt
+
+        if fit_type == "voigt":
+            amp, cen, sigma, gamma, offset = popt
+            width_param = sigma
+        else:
+            amp, cen, width_param, offset = popt
+            gamma = np.nan
+
+        if self.verbose:
+            gamma_str = f", gamma={gamma:.3f}" if fit_type == "voigt" else ""
+            print(f"    [{file_name}] {line.name}: {fit_type} fit, "
+                  f"center={cen:.2f} A, width={width_param:.3f}{gamma_str}, R^2={r2:.4f}")
 
         return FitResult(
             file_name=file_name,
@@ -110,6 +153,7 @@ class LineFitter:
             center=float(cen),
             depth=float(amp),
             width=float(width_param),
+            gamma=float(gamma),
             r_squared=float(r2),
             success=True,
         )

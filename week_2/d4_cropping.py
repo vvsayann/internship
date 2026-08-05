@@ -1,29 +1,26 @@
-import sys
+import os
+import glob
 
 from src.internship.utilities import crop_and_check
 
-FILES_TO_CHECK = [
-    "spec-0266-51630-0098.fits",
-]
-
-HDU_INDEX = 1
-FLUX_COLUMN = "flux"
-LOGLAM_COLUMN = "loglam"
-
-MAX_WAVELENGTH = 7500.0
-
-OUTPUT_DIR = r"your output directory"
+INPUT_FOLDER = r"C:\Users\Ayank\OneDrive\Desktop\internship\spectra_files"
+OUTPUT_DIR = os.path.join(INPUT_FOLDER, "processed_spectrum")
 
 
 def main():
-    files = sys.argv[1:] if len(sys.argv) > 1 else FILES_TO_CHECK
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+    files = glob.glob(os.path.join(INPUT_FOLDER, "*.fits"))
 
     if not files:
-        print("No files specified. Pass filenames as arguments or edit FILES_TO_CHECK.")
+        print(f"No .fits files found in {INPUT_FOLDER}")
         return
 
+    print(f"Found {len(files)} FITS file(s) in {INPUT_FOLDER}")
+
     for f in files:
-        crop_and_check(f)
+        print(f"\nProcessing {f} ...")
+        crop_and_check(f, OUTPUT_DIR)
 
     print("\nDone.")
 

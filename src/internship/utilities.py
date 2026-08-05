@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import sys
+
 import numpy as np
 from astropy.io import fits
 from astropy.stats import mad_std
@@ -9,12 +10,13 @@ from matplotlib import pyplot as plt
 from scipy.signal import find_peaks
 from scipy.special._ufuncs import wofz
 
-from src.internship.fitters import LinesWithSigmoid
-from week_2.d2_dips_and_peaks import KNOWN_LINES
+KNOWN_LINES = {
+    "H-alpha": 6562.8, "H-beta": 4861.3, "H-gamma": 4340.5, "H-delta": 4101.7,
+    "Ca-K": 3933.7, "Ca-H": 3968.5, "Na-D": 5892.9,
+}
 
 
 def lorentzian_dip(x, amp, cen, gamma, offset):
-
     gamma = max(gamma, 1e-6)
     return offset - amp * (gamma ** 2) / ((x - cen) ** 2 + gamma ** 2)
 
@@ -35,13 +37,12 @@ def raw_gaussian(x, amplitude, mu, sigma):
 def sigmoid_dip(x, amp, cen, width, offset):
     return offset - amp / (1 + np.exp((x - cen) / width))
 
+
 def vacumm_to_air(wavelength: np.ndarray) -> np.ndarray:
-    term1 = 5.792105E-2 / (238.0185 - (1.0E4 / wavelength)**2)
-    term2 = 1.67917E-3 / (57.362 - (1.0E4 / wavelength)**2)
+    term1 = 5.792105E-2 / (238.0185 - (1.0E4 / wavelength) ** 2)
+    term2 = 1.67917E-3 / (57.362 - (1.0E4 / wavelength) ** 2)
     air = wavelength / (1.0 + term1 + term2)
     return air
-
-
 
 
 FILES_TO_CHECK = [
@@ -57,7 +58,7 @@ MAX_WAVELENGTH = 7500.0
 OUTPUT_DIR = r"your output directory"
 
 
-def crop_and_check(filepath):
+def crop_and_check(filepath, output_dir):
     print(f"\n--- Checking {filepath} ---")
 
     if not os.path.exists(filepath):
@@ -91,10 +92,9 @@ def crop_and_check(filepath):
               f"{trimmed_wavelength.max():.2f} A ({n_kept} points kept, "
               f"{len(wavelength) - n_kept} discarded)")
 
-        os.makedirs(OUTPUT_DIR, exist_ok=True)
+        os.makedirs(output_dir, exist_ok=True)
         base = os.path.splitext(os.path.basename(filepath))[0]
-        out_fits = os.path.join(OUTPUT_DIR, f"{base}_cropped7500.fits")
-
+        out_fits = os.path.join(output_dir, f"{base}_cropped7500.fits")
         new_hdu = fits.BinTableHDU(data=trimmed_data, header=header)
         hdul_out = fits.HDUList()
         for i, hdu in enumerate(hdul):
@@ -115,12 +115,10 @@ def crop_and_check(filepath):
         axes[1].set_xlabel("Wavelength (A)")
 
         plt.tight_layout()
-        out_png = os.path.join(OUTPUT_DIR, f"{base}_cropped7500_check.png")
+        out_png = os.path.join(output_dir, f"{base}_cropped7500_check.png")
         plt.savefig(out_png, dpi=150)
         plt.close(fig)
         print(f"  Saved check plot: {out_png}")
-
-
 
 
 INPUT_FILE = sys.argv[1] if len(sys.argv) > 1 else "spectrum.fits"
@@ -130,11 +128,11 @@ HDU_INDEX = 1
 IS_TABLE = True
 FLUX_COLUMN = "FLUX"
 
-
 WINDOW = 15
 GAP = 3
 SIGMA_THRESH = 3.5
 PASSES = 3
+
 
 def detect_spikes(data, window=WINDOW, sigma_thresh=SIGMA_THRESH, gap=GAP):
     n = len(data)
@@ -161,7 +159,7 @@ def remove_spikes(data, spikes):
 
 
 def detect_and_remove_spikes(data, window=WINDOW, sigma_thresh=SIGMA_THRESH,
-                              gap=GAP, passes=PASSES):
+                             gap=GAP, passes=PASSES):
     all_spikes = np.zeros(len(data), dtype=bool)
     clean = data.copy()
     for _ in range(passes):
@@ -192,14 +190,6 @@ def detect_features(residual, prominence_sigma=4.0):
     peaks, _ = find_peaks(residual, prominence=prominence_sigma * noise)
     dips, _ = find_peaks(-residual, prominence=prominence_sigma * noise)
     return peaks, dips
-
-
-def fit_continuum(wavelength, flux, p0=None):
-    cont = LinesWithSigmoid(wavelength, flux)
-    if p0 is None:
-        p0 = (0.001, float(np.median(wavelength)), 0.0, float(np.median(flux)), 0.0, float(np.median(flux)))
-    cont.fit(p0=[p0])
-    return cont
 
 
 def voigt_dip(x, amp, cen, sigma, gamma, offset):

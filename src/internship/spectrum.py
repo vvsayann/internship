@@ -9,11 +9,10 @@ import pandas as pd
 from astropy.io import fits
 from matplotlib import pyplot as plt
 from scipy.signal import medfilt
-
+from .spectral_line import SpectralLine
 from .fit_result import FitResult
-from .utilities import gaussian_dip
 from .fitters import LineFitter
-from .utilities import sigmoid_dip
+from .utilities import sigmoid_dip , gaussian_dip, voigt_dip
 
 
 class SpectrumReader:
@@ -78,8 +77,6 @@ class SpectrumPlotter:
         ax_full.set_xlabel("Wavelength (\u00c5)")
         ax_full.set_ylabel("Normalized flux")
 
-        fit_funcs = {"gaussian": gaussian_dip, "sigmoid": sigmoid_dip}
-
         for i, (line, result) in enumerate(zip(line_catalog, results)):
             row, col = divmod(i, n_cols)
             ax = fig.add_subplot(gs[row + 1, col])
@@ -91,9 +88,18 @@ class SpectrumPlotter:
 
             if result.success:
                 x_fine = np.linspace(x.min(), x.max(), 200)
-                y_fine = fit_funcs[result.fit_type](x_fine, result.depth, result.center, result.width, np.max(y))
-                ax.plot(x_fine, y_fine, "-", color="tab:red", lw=1.5, label=f"{result.fit_type} fit")
-                ax.axvline(result.center, color="tab:blue", ls=":", lw=1)
+                if result.fit_type == "voigt":
+                    y_fine = voigt_dip(x_fine, result.depth, result.center, result.width, result.gamma, np.max(y))
+                elif result.fit_type == "gaussian":
+                    y_fine = gaussian_dip(x_fine, result.depth, result.center, result.width, np.max(y))
+                elif result.fit_type == "sigmoid":
+                    y_fine = sigmoid_dip(x_fine, result.depth, result.center, result.width, np.max(y))
+                else:
+                    y_fine = None
+
+                if y_fine is not None:
+                    ax.plot(x_fine, y_fine, "-", color="tab:red", lw=1.5, label=f"{result.fit_type} fit")
+                    ax.axvline(result.center, color="tab:blue", ls=":", lw=1)
                 title = f"{line.name}\ncenter={result.center:.1f}\u00c5  R\u00b2={result.r_squared:.3f}"
             else:
                 title = f"{line.name}\nfit failed: {result.note}"
@@ -111,11 +117,7 @@ class SpectrumPlotter:
         return out_path
 
 
-@dataclass
-class SpectralLine:
-    name: str
-    rest_wavelength: float
-    window: float = 15.0
+
 
 
 LINE_CATALOG: list[SpectralLine] = [
@@ -210,7 +212,14 @@ class BatchRunner:
 
     def _save_file_results(self, results: list[FitResult], file_name: str, out_dir: str) -> str:
         base = os.path.splitext(file_name)[0]
-        out_path = os.path.join(out_dir, f"gaussian_{base}.csv")
+
+        fit_types = [r.fit_type for r in results if r.success]
+        if fit_types:
+            dominant = max(set(fit_types), key=fit_types.count)
+        else:
+            dominant = "nofit"
+
+        out_path = os.path.join(out_dir, f"{dominant}_{base}.csv")
         pd.DataFrame([r.to_dict() for r in results]).to_csv(out_path, index=False)
         print(f"    Saved results: {out_path}")
         return out_path

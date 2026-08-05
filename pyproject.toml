@@ -11,3 +11,7 @@ dependencies = [
     "pyqt6>=6.11.0",
     "scipy-stubs~=1.15.3",
 ]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

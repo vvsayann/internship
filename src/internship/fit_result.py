@@ -14,6 +14,7 @@ class FitResult:
     center: float = np.nan
     depth: float = np.nan
     width: float = np.nan
+    gamma: float = np.nan
     r_squared: float = np.nan
     success: bool = False
     note: str = ""
@@ -28,6 +29,7 @@ class FitResult:
             "fitted_center": self.center,
             "depth": self.depth,
             "sigma_gaussian_width": self.width,
+            "gamma_voigt": self.gamma,
             "r_squared": self.r_squared,
             "success": self.success,
             "note": self.note,
