@@ -1,10 +1,12 @@
-from typing import Tuple, Sequence
+from typing import Tuple
 
+import matplotlib.pyplot as plt
 import numpy as np
 from astropy.io import fits
-from pymultifit.fitters.backend import BaseFitter
 from scipy.optimize import curve_fit
-import matplotlib.pyplot as plt
+
+from src.internship.fitters import LinesWithSigmoid
+from src.internship.utilities import blended_model
 
 
 def load_sdss_spectrum(filepath: str) -> Tuple[np.ndarray, np.ndarray]:
@@ -18,45 +20,7 @@ def load_sdss_spectrum(filepath: str) -> Tuple[np.ndarray, np.ndarray]:
     return wavelength[good], flux[good]
 
 
-def sigmoid(x, k, x0):
-    return 1.0 / (1.0 + np.exp(-k * (x - x0)))
-
-
-def line(x, a, b):
-    return a * x + b
-
-
-def blended_model(x, a1, b1, a2, b2, k, x0):
-    s = sigmoid(x, k, x0)
-    return s * line(x, a1, b1) + (1 - s) * line(x, a2, b2)
-
-
-class LinesWithSigmoid(BaseFitter):
-    def __init__(self, x_values, y_values, max_iterations=1000):
-        super().__init__(x_values, y_values, max_iterations)
-        self.n_par = 6
-        self.n_fits = 1
-
-    def fit_boundaries(self) -> Tuple[Sequence[float], Sequence[float]]:
-        x_min, x_max = self.x_values.min(), self.x_values.max()
-        y_min, y_max = self.y_values.min(), self.y_values.max()
-
-        x_span = x_max - x_min
-        y_span = y_max - y_min
-
-        slope_bound = (y_span / x_span) * 10 if x_span > 0 else np.inf
-        intercept_bound = 10 * max(abs(y_min), abs(y_max), 1.0)
-
-        lb = (-slope_bound, -intercept_bound, -slope_bound, -intercept_bound, -1.0, x_min)
-        ub = (slope_bound, intercept_bound, slope_bound, intercept_bound, 1.0, x_max)
-        return lb, ub
-
-    @staticmethod
-    def fitter(x, params) -> np.ndarray:
-        return blended_model(x, *params)
-
-
-FITS_PATH = r"C:\Users\Ayank\OneDrive\Desktop\internship\Week 2\spec-0417-51821-0428.fits"
+FITS_PATH = r"C:\Users\Ayank\OneDrive\Desktop\internship\spectra_files\spec-0417-51821-0428.fits"
 
 x, y_data = load_sdss_spectrum(FITS_PATH)
 
