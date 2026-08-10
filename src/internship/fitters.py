@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import warnings
-from typing import Tuple, Sequence
+from typing import Tuple, Sequence , Optional
 
 import numpy as np
 from pymultifit.fitters.backend import BaseFitter
@@ -35,9 +35,10 @@ class GaussianFitter(BaseFitter):
 
 
 class LineFitter:
-    def __init__(self, min_points: int = 8, verbose: bool = False):
+    def __init__(self, min_points: int = 8, verbose: bool = False, allowed_fit_types: Optional[set[str]] = None):
         self.min_points = min_points
         self.verbose = verbose
+        self.allowed_fit_types = allowed_fit_types
 
     @staticmethod
     def _r_squared(y_obs: np.ndarray, y_fit: np.ndarray) -> float:
@@ -131,13 +132,28 @@ class LineFitter:
                 note="all fits failed to converge",
             )
 
-        # Always prefer voigt if it converged; only fall back to the
-        # best-scoring alternative if voigt itself failed to converge.
-        voigt_candidates = [c for c in candidates if c[0] == "voigt"]
+
+        if self.allowed_fit_types is not None:
+            usable = [c for c in candidates if c[0] in self.allowed_fit_types]
+        else:
+            usable = candidates
+
+        if not usable:
+            if self.verbose:
+                print(
+                    f"    [{file_name}] {line.name}: FAILED (no candidate matched allowed fit types {self.allowed_fit_types})")
+            return FitResult(
+                file_name=file_name,
+                line_name=line.name,
+                rest_wavelength=line.rest_wavelength,
+                note=f"no candidate matched allowed fit types {self.allowed_fit_types}",
+            )
+
+        voigt_candidates = [c for c in usable if c[0] == "voigt"]
         if voigt_candidates:
             fit_type, popt, r2 = voigt_candidates[0]
         else:
-            fit_type, popt, r2 = max(candidates, key=lambda r: r[2])
+            fit_type, popt, r2 = max(usable, key=lambda r: r[2])
             if self.verbose:
                 print(f"    [{file_name}] {line.name}: voigt failed to converge, "
                       f"falling back to {fit_type}")

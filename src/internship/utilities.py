@@ -122,7 +122,7 @@ def crop_and_check(filepath, output_dir):
 
 
 INPUT_FILE = sys.argv[1] if len(sys.argv) > 1 else "spectrum.fits"
-OUTPUT_FILE = INPUT_FILE.replace(".fits", "_despiked.fits")
+OUTPUT_FILE = INPUT_FILE.replace(".fits", ".fits")
 
 HDU_INDEX = 1
 IS_TABLE = True

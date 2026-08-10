@@ -127,6 +127,9 @@ LINE_CATALOG: list[SpectralLine] = [
     SpectralLine("He I 4473", 4473.0, window=12.0),
     SpectralLine("He I 4715", 4715.0, window=12.0),
     SpectralLine("He I 4925", 4925.0, window=12.0),
+    SpectralLine("He I 5015", 5015.7, window=12.0),
+    SpectralLine("He I 5876", 5875.6, window=14.0),
+    SpectralLine("He I 6678", 6678.15, window=12.0),
 ]
 
 
@@ -137,11 +140,13 @@ class SpectrumProcessor:
         fitter: Optional[LineFitter] = None,
         plotter: Optional[SpectrumPlotter] = None,
         min_r2: float = 0.0,
+        allowed_fit_types: Optional[set[str]] = None,
     ):
         self.line_catalog = line_catalog
         self.fitter = fitter or LineFitter()
         self.plotter = plotter
         self.min_r2 = min_r2
+        self.allowed_fit_types = allowed_fit_types
 
     def process(self, filepath: str) -> list[FitResult]:
         file_name = os.path.basename(filepath)
@@ -150,27 +155,23 @@ class SpectrumProcessor:
 
         all_results = [self.fitter.fit_line(wavelength, flux_norm, line, file_name) for line in self.line_catalog]
 
-
-        for result in all_results:
-            if result.success and result.r_squared is not None and result.r_squared < self.min_r2:
-                result.success = False
-                result.note = f"R^2 {result.r_squared:.3f} below threshold {self.min_r2}"
-
-
-        plot_lines, plot_results = [], []
+        kept_lines, kept_results = [], []
         for line, result in zip(self.line_catalog, all_results):
-            if result.success:
-                plot_lines.append(line)
-                plot_results.append(result)
+            if not result.success or result.r_squared is None or result.r_squared < self.min_r2:
+                continue
+            if self.allowed_fit_types is not None and result.fit_type not in self.allowed_fit_types:
+                continue
+            kept_lines.append(line)
+            kept_results.append(result)
 
         if self.plotter is not None:
-            if plot_results:
-                png_path = self.plotter.plot(wavelength, flux_norm, plot_lines, plot_results, file_name)
+            if kept_results:
+                png_path = self.plotter.plot(wavelength, flux_norm, kept_lines, kept_results, file_name)
                 print(f"    Saved plot: {png_path}")
             else:
-                print(f"    No lines met R^2 >= {self.min_r2} for {file_name} — skipping plot")
+                print(f"    No lines matched filters for {file_name} — skipping plot")
 
-        return all_results
+        return kept_results
 
 
 class ContinuumNormalizer:
