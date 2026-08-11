@@ -1,0 +1,3 @@
+file_name,line_name,rest_wavelength,fit_type,fitted_center,depth,sigma_gaussian_width,gamma_voigt,r_squared,success,note
+spec-0579-52338-0078_despiked.fits,H8 + He I 3890,3890.0,gaussian,3889.5043645869114,0.361154400427378,6.078591214654233,,0.7786783047193091,True,
+spec-0579-52338-0078_despiked.fits,He I 4473,4473.0,gaussian,4472.896571052941,0.21698508654179618,4.294386580375993,,0.8076350909078717,True,

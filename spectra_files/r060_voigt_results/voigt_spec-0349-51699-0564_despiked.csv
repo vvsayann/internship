@@ -1,0 +1,2 @@
+file_name,line_name,rest_wavelength,fit_type,fitted_center,depth,sigma_gaussian_width,gamma_voigt,r_squared,success,note
+spec-0349-51699-0564_despiked.fits,He I 6678,6678.15,voigt,6679.0548300733335,0.09517431855068678,4.571454886878319,0.2000000004777341,0.6791634282198928,True,

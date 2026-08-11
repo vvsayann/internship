@@ -1,0 +1,2 @@
+file_name,line_name,rest_wavelength,fit_type,fitted_center,depth,sigma_gaussian_width,gamma_voigt,r_squared,success,note
+spec-0301-51942-0431_despiked.fits,ALL,,none,,,,,,False,file-level error: 'SpectrumProcessor' object has no attribute 'process'

@@ -11,6 +11,36 @@ from .fit_result import FitResult
 from .spectral_line import SpectralLine
 from .utilities import gaussian_dip, raw_gaussian, sigmoid_dip, blended_model, voigt_dip
 
+# SDSS spectrograph resolving power (R = lambda / delta_lambda), used to turn an
+# instrument resolution element into a physically motivated initial guess (and a
+# sane lower bound) for line widths, instead of guessing from the size of the
+# fit window.
+INSTRUMENT_RESOLVING_POWER = 2000.0
+
+# How far (in Angstrom) the fitted line center is allowed to drift from the
+# catalog's rest_wavelength. This must be a small fraction of `line.window`
+# (which only controls how much data is handed to the fitter) so the optimizer
+# can't lock onto a neighboring feature within the same window.
+CENTER_SEARCH_ANGSTROM = 3.0
+
+
+def _resolution_sigma(center_wavelength: float) -> float:
+    """Gaussian sigma (Angstrom) of one resolution element at this wavelength."""
+    fwhm = center_wavelength / INSTRUMENT_RESOLVING_POWER
+    return fwhm / (2.0 * np.sqrt(2.0 * np.log(2.0)))
+
+
+def _center_bounds(x: np.ndarray, guess_center: float) -> tuple[float, float]:
+    """Clamp the center search to rest_wavelength +/- CENTER_SEARCH_ANGSTROM,
+    further clipped to the data range actually available in `x`."""
+    lo = max(x.min(), guess_center - CENTER_SEARCH_ANGSTROM)
+    hi = min(x.max(), guess_center + CENTER_SEARCH_ANGSTROM)
+    if lo >= hi:
+        # Degenerate window (shouldn't normally happen since line.window >>
+        # CENTER_SEARCH_ANGSTROM) - fall back to the full data range.
+        lo, hi = x.min(), x.max()
+    return lo, hi
+
 
 def fit_continuum(wavelength, flux, p0=None):
     cont = LinesWithSigmoid(wavelength, flux)
@@ -50,37 +80,40 @@ class LineFitter:
 
     def fit_gaussian(self, x: np.ndarray, y: np.ndarray, guess_center: float):
         amp0 = max(np.max(y) - np.min(y), 0.01)
-        sigma0 = max((x.max() - x.min()) / 6.0, 0.5)
+        sigma0 = max(_resolution_sigma(guess_center), 0.3)
         offset0 = float(np.max(y))
         p0 = [amp0, guess_center, sigma0, offset0]
+        center_lo, center_hi = _center_bounds(x, guess_center)
         bounds = (
-            [0, x.min(), 0.1, 0.0],
-            [10 * amp0 + 1e-6, x.max(), (x.max() - x.min()), 10 * offset0 + 1e-6],
+            [0, center_lo, 0.2, 0.0],
+            [10 * amp0 + 1e-6, center_hi, (x.max() - x.min()), 10 * offset0 + 1e-6],
         )
         popt, _ = curve_fit(gaussian_dip, x, y, p0=p0, bounds=bounds, maxfev=10000)
         return popt, self._r_squared(y, gaussian_dip(x, *popt))
 
     def fit_sigmoid(self, x: np.ndarray, y: np.ndarray, guess_center: float):
         amp0 = max(np.max(y) - np.min(y), 0.01)
-        width0 = max((x.max() - x.min()) / 8.0, 0.5)
+        width0 = max(_resolution_sigma(guess_center), 0.3)
         offset0 = float(np.max(y))
         p0 = [amp0, guess_center, width0, offset0]
+        center_lo, center_hi = _center_bounds(x, guess_center)
         bounds = (
-            [0, x.min(), 0.05, 0.0],
-            [10 * amp0 + 1e-6, x.max(), (x.max() - x.min()), 10 * offset0 + 1e-6],
+            [0, center_lo, 0.2, 0.0],
+            [10 * amp0 + 1e-6, center_hi, (x.max() - x.min()), 10 * offset0 + 1e-6],
         )
         popt, _ = curve_fit(sigmoid_dip, x, y, p0=p0, bounds=bounds, maxfev=10000)
         return popt, self._r_squared(y, sigmoid_dip(x, *popt))
 
     def fit_voigt(self, x: np.ndarray, y: np.ndarray, guess_center: float):
         amp0 = max(np.max(y) - np.min(y), 0.01)
-        sigma0 = max((x.max() - x.min()) / 6.0, 0.5)
+        sigma0 = max(_resolution_sigma(guess_center), 0.3)
         gamma0 = sigma0
         offset0 = float(np.max(y))
         p0 = [amp0, guess_center, sigma0, gamma0, offset0]
+        center_lo, center_hi = _center_bounds(x, guess_center)
         bounds = (
-            [0, x.min(), 0.05, 0.05, 0.0],
-            [10 * amp0 + 1e-6, x.max(), (x.max() - x.min()), (x.max() - x.min()), 10 * offset0 + 1e-6],
+            [0, center_lo, 0.2, 0.2, 0.0],
+            [10 * amp0 + 1e-6, center_hi, (x.max() - x.min()), (x.max() - x.min()), 10 * offset0 + 1e-6],
         )
         popt, _ = curve_fit(voigt_dip, x, y, p0=p0, bounds=bounds, maxfev=10000)
         return popt, self._r_squared(y, voigt_dip(x, *popt))
