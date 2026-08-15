@@ -16,6 +16,7 @@ class FitResult:
     width: float = np.nan
     gamma: float = np.nan
     r_squared: float = np.nan
+    fractional_rms: float = np.nan
     success: bool = False
     note: str = ""
     continuum_offset: float = np.nan
@@ -30,7 +31,9 @@ class FitResult:
             "depth": self.depth,
             "sigma_gaussian_width": self.width,
             "gamma_voigt": self.gamma,
+            "continuum_offset": self.continuum_offset,
             "r_squared": self.r_squared,
+            "fractional_rms": self.fractional_rms,
             "success": self.success,
             "note": self.note,
         }

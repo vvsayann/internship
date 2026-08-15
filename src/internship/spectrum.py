@@ -77,12 +77,13 @@ class SpectrumPlotter:
             if x.size == 0:
                 continue
 
+            offset = result.continuum_offset if np.isfinite(result.continuum_offset) else 1.0
             if result.fit_type == "voigt":
-                y_dip = voigt_dip(x, result.depth, result.center, result.width, result.gamma, 1.0)
+                y_dip = voigt_dip(x, result.depth, result.center, result.width, result.gamma, offset)
             elif result.fit_type == "gaussian":
-                y_dip = gaussian_dip(x, result.depth, result.center, result.width, 1.0)
+                y_dip = gaussian_dip(x, result.depth, result.center, result.width, offset)
             elif result.fit_type == "sigmoid":
-                y_dip = sigmoid_dip(x, result.depth, result.center, result.width, 1.0)
+                y_dip = sigmoid_dip(x, result.depth, result.center, result.width, offset)
             else:
                 continue
 
@@ -122,19 +123,23 @@ class SpectrumPlotter:
 
             if result.success:
                 x_fine = np.linspace(x.min(), x.max(), 200)
+                offset = result.continuum_offset if np.isfinite(result.continuum_offset) else np.max(y)
                 if result.fit_type == "voigt":
-                    y_fine = voigt_dip(x_fine, result.depth, result.center, result.width, result.gamma, np.max(y))
+                    y_fine = voigt_dip(x_fine, result.depth, result.center, result.width, result.gamma, offset)
                 elif result.fit_type == "gaussian":
-                    y_fine = gaussian_dip(x_fine, result.depth, result.center, result.width, np.max(y))
+                    y_fine = gaussian_dip(x_fine, result.depth, result.center, result.width, offset)
                 elif result.fit_type == "sigmoid":
-                    y_fine = sigmoid_dip(x_fine, result.depth, result.center, result.width, np.max(y))
+                    y_fine = sigmoid_dip(x_fine, result.depth, result.center, result.width, offset)
                 else:
                     y_fine = None
 
                 if y_fine is not None:
                     ax.plot(x_fine, y_fine, "-", color="tab:red", lw=1.5, label=f"{result.fit_type} fit")
                     ax.axvline(result.center, color="tab:blue", ls=":", lw=1)
-                title = f"{line.name}\ncenter={result.center:.1f}\u00c5  R\u00b2={result.r_squared:.3f}"
+                title = (
+                    f"{line.name}\ncenter={result.center:.1f}\u00c5  "
+                    f"R\u00b2={result.r_squared:.3f}  fRMS={result.fractional_rms:.3f}"
+                )
             else:
                 title = f"{line.name}\nfit failed: {result.note}"
 

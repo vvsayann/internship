@@ -78,6 +78,17 @@ class LineFitter:
             return 0.0
         return 1.0 - ss_res / ss_tot
 
+    @staticmethod
+    def _fractional_rms(y_obs: np.ndarray, y_fit: np.ndarray) -> float:
+        """RMS of the fit residuals, expressed as a fraction of the mean
+        observed flux, so it's comparable across lines/spectra at different
+        continuum levels."""
+        mean_y = np.mean(y_obs)
+        if mean_y == 0:
+            return np.nan
+        rms = np.sqrt(np.mean((y_obs - y_fit) ** 2))
+        return rms / abs(mean_y)
+
     def fit_gaussian(self, x: np.ndarray, y: np.ndarray, guess_center: float):
         amp0 = max(np.max(y) - np.min(y), 0.01)
         sigma0 = max(_resolution_sigma(guess_center), 0.3)
@@ -194,14 +205,22 @@ class LineFitter:
         if fit_type == "voigt":
             amp, cen, sigma, gamma, offset = popt
             width_param = sigma
+            y_fit = voigt_dip(x, *popt)
         else:
             amp, cen, width_param, offset = popt
             gamma = np.nan
+            if fit_type == "gaussian":
+                y_fit = gaussian_dip(x, *popt)
+            else:
+                y_fit = sigmoid_dip(x, *popt)
+
+        frms = self._fractional_rms(y, y_fit)
 
         if self.verbose:
             gamma_str = f", gamma={gamma:.3f}" if fit_type == "voigt" else ""
             print(f"    [{file_name}] {line.name}: {fit_type} fit, "
-                  f"center={cen:.2f} A, width={width_param:.3f}{gamma_str}, R^2={r2:.4f}")
+                  f"center={cen:.2f} A, width={width_param:.3f}{gamma_str}, "
+                  f"R^2={r2:.4f}, fractional RMS={frms:.4f}")
 
         return FitResult(
             file_name=file_name,
@@ -213,7 +232,9 @@ class LineFitter:
             width=float(width_param),
             gamma=float(gamma),
             r_squared=float(r2),
+            fractional_rms=float(frms),
             success=True,
+            continuum_offset=float(offset),
         )
 
 
