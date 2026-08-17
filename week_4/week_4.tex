@@ -1,0 +1,89 @@
+\documentclass[12pt]{article}
+
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath, amssymb}
+\usepackage{booktabs}
+\usepackage{siunitx}
+\usepackage{enumitem}
+\usepackage{setspace}
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage{xcolor}
+
+\usepackage{multirow}
+\usepackage{hyperref}
+\usepackage{cleveref}
+\usepackage[version=4]{mhchem}
+\graphicspath{{figs/}}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue!55!black,
+  citecolor=blue!55!black,
+  urlcolor=blue!55!black,
+}
+
+\captionsetup{font=small, labelfont=bf, labelsep=colon}
+
+\titleformat{\section}{\normalfont\Large\bfseries\color{blue!30!black}}{\thesection}{1em}{}
+\titleformat{\subsection}{\normalfont\large\bfseries\color{blue!25!black}}{\thesubsection}{1em}{}
+
+\pagestyle{fancy}
+\setlength{\headheight}{14pt}
+\fancyhf{}
+\fancyhead[R]{\small SDSS OB Star Spectral Line Analysis}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+\setcounter{tocdepth}{2}
+\setcounter{secnumdepth}{2}
+
+\title{\textbf{SDSS OB Star Spectral Line Analysis}\\
+\large LaTeX Progress Report}
+\author{Ayan Kashif \\ \small Reg. No: 240601050}
+\date{Submitted to:\\Mr. Syed Ali Mohsin Bukhari}
+
+\begin{document}
+
+\maketitle
+\thispagestyle{empty}
+
+\begin{center}
+\textit{ Week 4 (3rd--7th August)}
+\end{center}
+
+\clearpage
+\tableofcontents
+\clearpage
+
+
+\section{Repository Cleanup and Reporting (Week 4)}
+\label{sec:repo-cleanup}
+
+Week 4 (3rd--4th August) opened with tidying up the git repository. The existing code was refactored and organized into a dedicated \texttt{src} directory, which makes the project much easier to navigate going forward. Alongside that, LaTeX and PDF reports covering the work from Weeks 1 and 2 were put together. On the second day these reports were revisited and refined, a bit more work was done on the code, and the repo was given another round of cleaning.
+
+\section{Fixing the Fitters (Week 4)}
+\label{sec:fixing-fitters}
+
+Week 4 continued (5th August) with focus shifting to the fitting scripts, now that the \texttt{src} restructuring was in place. The Voigt, Gaussian, and Lorentzian fitter code was fixed so it would work correctly with the new file structure, and their outputs were updated so each fit now exports both a PNG and a CSV file instead of just one or the other. The results were then filtered down to only the files with specific $R^2$ values, which were examined more closely. To keep things focused, \texttt{fitters.py} was restricted to only run the Voigt fit for this pass, which made it much easier to see at a glance which spectral lines fit well and which ones didn't.
+
+\section{Refining Outputs and Applying the Voigt Fitter (Week 4)}
+\label{sec:refining-outputs}
+
+The final two days of Week 4 (6th--7th August) were spent tightening up the output pipeline --- making sure everything saves in the correct format for later use. Once that was sorted, the Voigt fitter was used to process a batch of spectra and store their outputs. To keep the results meaningful, only plots with an $R^2$ value of 0.8 or higher were kept, with a stricter 0.85 threshold used where possible.
+
+\section{Notes}
+\label{sec:notes}
+
+\begin{itemize}[leftmargin=*]
+  \item The move to a \texttt{src/} layout paid off almost immediately --- the fitter fixes were noticeably faster to make once the code was organized.
+  \item Exporting both PNG and CSV per fit should make it much easier to sanity-check results visually without re-running anything.
+  \item Sticking to a single fit type (Voigt) for the $R^2$ filtering pass kept the comparison clean --- worth doing again before mixing in Gaussian/Lorentzian results.
+\end{itemize}
+
+\end{document}

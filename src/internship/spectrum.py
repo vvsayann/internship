@@ -61,7 +61,36 @@ class SpectrumPlotter:
         self.plots_dir = plots_dir
         os.makedirs(self.plots_dir, exist_ok=True)
 
-    def plot(self, wavelength, flux_norm, line_catalog, results, file_name) -> str:
+    @staticmethod
+    def _build_total_fit(wavelength, continuum, line_catalog, results):
+        """Continuum everywhere, but multiplied by the fitted line profile
+        inside each successfully-fit line's window, so the black curve dips
+        along with the real absorption lines instead of staying flat there."""
+        total_fit = continuum.copy()
+        for line, result in zip(line_catalog, results):
+            if not result.success:
+                continue
+
+            lo, hi = line.rest_wavelength - line.window, line.rest_wavelength + line.window
+            mask = (wavelength >= lo) & (wavelength <= hi)
+            x = wavelength[mask]
+            if x.size == 0:
+                continue
+
+            offset = result.continuum_offset if np.isfinite(result.continuum_offset) else 1.0
+            if result.fit_type == "voigt":
+                y_dip = voigt_dip(x, result.depth, result.center, result.width, result.gamma, offset)
+            elif result.fit_type == "gaussian":
+                y_dip = gaussian_dip(x, result.depth, result.center, result.width, offset)
+            elif result.fit_type == "sigmoid":
+                y_dip = sigmoid_dip(x, result.depth, result.center, result.width, offset)
+            else:
+                continue
+
+            total_fit[mask] = continuum[mask] * y_dip
+        return total_fit
+
+    def plot(self, wavelength, flux, continuum, flux_norm, line_catalog, results, file_name) -> str:
         n_lines = len(line_catalog)
         n_cols = 3
         n_rows = int(np.ceil(n_lines / n_cols))
@@ -69,14 +98,20 @@ class SpectrumPlotter:
         fig = plt.figure(figsize=(14, 4 + 3 * n_rows))
         gs = fig.add_gridspec(n_rows + 1, n_cols, height_ratios=[2] + [1] * n_rows)
 
+        total_fit = self._build_total_fit(wavelength, continuum, line_catalog, results)
+
+        # --- Top panel: raw spectrum + total fit (continuum + line dips) ---
         ax_full = fig.add_subplot(gs[0, :])
-        ax_full.plot(wavelength, flux_norm, color="black", lw=0.6)
+        ax_full.plot(wavelength, flux, color="tab:blue", lw=0.6, label="Extinction spectrum")
+        ax_full.plot(wavelength, total_fit, color="black", lw=1.2, label="Total fit")
         for line in line_catalog:
             ax_full.axvline(line.rest_wavelength, color="tab:red", ls="--", lw=0.7, alpha=0.6)
-        ax_full.set_title(f"{file_name} \u2014 full normalized spectrum")
+        ax_full.set_title(f"{file_name} \u2014 full spectrum with continuum fit")
         ax_full.set_xlabel("Wavelength (\u00c5)")
-        ax_full.set_ylabel("Normalized flux")
+        ax_full.set_ylabel("Flux")
+        ax_full.legend(fontsize=8)
 
+        # --- Sub-panels: per-line fits, still on normalized flux ---
         for i, (line, result) in enumerate(zip(line_catalog, results)):
             row, col = divmod(i, n_cols)
             ax = fig.add_subplot(gs[row + 1, col])
@@ -88,19 +123,23 @@ class SpectrumPlotter:
 
             if result.success:
                 x_fine = np.linspace(x.min(), x.max(), 200)
+                offset = result.continuum_offset if np.isfinite(result.continuum_offset) else np.max(y)
                 if result.fit_type == "voigt":
-                    y_fine = voigt_dip(x_fine, result.depth, result.center, result.width, result.gamma, np.max(y))
+                    y_fine = voigt_dip(x_fine, result.depth, result.center, result.width, result.gamma, offset)
                 elif result.fit_type == "gaussian":
-                    y_fine = gaussian_dip(x_fine, result.depth, result.center, result.width, np.max(y))
+                    y_fine = gaussian_dip(x_fine, result.depth, result.center, result.width, offset)
                 elif result.fit_type == "sigmoid":
-                    y_fine = sigmoid_dip(x_fine, result.depth, result.center, result.width, np.max(y))
+                    y_fine = sigmoid_dip(x_fine, result.depth, result.center, result.width, offset)
                 else:
                     y_fine = None
 
                 if y_fine is not None:
                     ax.plot(x_fine, y_fine, "-", color="tab:red", lw=1.5, label=f"{result.fit_type} fit")
                     ax.axvline(result.center, color="tab:blue", ls=":", lw=1)
-                title = f"{line.name}\ncenter={result.center:.1f}\u00c5  R\u00b2={result.r_squared:.3f}"
+                title = (
+                    f"{line.name}\ncenter={result.center:.1f}\u00c5  "
+                    f"R\u00b2={result.r_squared:.3f}  fRMS={result.fractional_rms:.3f}"
+                )
             else:
                 title = f"{line.name}\nfit failed: {result.note}"
 
@@ -117,9 +156,6 @@ class SpectrumPlotter:
         return out_path
 
 
-
-
-
 LINE_CATALOG: list[SpectralLine] = [
     SpectralLine("He I 3818", 3818.0, window=12.0),
     SpectralLine("H8 + He I 3890", 3890.0, window=14.0),
@@ -127,6 +163,9 @@ LINE_CATALOG: list[SpectralLine] = [
     SpectralLine("He I 4473", 4473.0, window=12.0),
     SpectralLine("He I 4715", 4715.0, window=12.0),
     SpectralLine("He I 4925", 4925.0, window=12.0),
+    SpectralLine("He I 5015", 5015.7, window=12.0),
+    SpectralLine("He I 5876", 5875.6, window=14.0),
+    SpectralLine("He I 6678", 6678.15, window=12.0),
 ]
 
 
@@ -136,23 +175,41 @@ class SpectrumProcessor:
         line_catalog: list[SpectralLine],
         fitter: Optional[LineFitter] = None,
         plotter: Optional[SpectrumPlotter] = None,
+        min_r2: float = 0.0,
+        allowed_fit_types: Optional[set[str]] = None,
     ):
         self.line_catalog = line_catalog
         self.fitter = fitter or LineFitter()
         self.plotter = plotter
+        self.min_r2 = min_r2
+        self.allowed_fit_types = allowed_fit_types
 
     def process(self, filepath: str) -> list[FitResult]:
         file_name = os.path.basename(filepath)
         wavelength, flux, _ivar = SpectrumReader.load(filepath)
-        flux_norm = ContinuumNormalizer.normalize(wavelength, flux)
+        flux_norm, continuum = ContinuumNormalizer.normalize(wavelength, flux)
 
-        results = [self.fitter.fit_line(wavelength, flux_norm, line, file_name) for line in self.line_catalog]
+        all_results = [self.fitter.fit_line(wavelength, flux_norm, line, file_name) for line in self.line_catalog]
+
+        kept_lines, kept_results = [], []
+        for line, result in zip(self.line_catalog, all_results):
+            if not result.success or result.r_squared is None or result.r_squared < self.min_r2:
+                continue
+            if self.allowed_fit_types is not None and result.fit_type not in self.allowed_fit_types:
+                continue
+            kept_lines.append(line)
+            kept_results.append(result)
 
         if self.plotter is not None:
-            png_path = self.plotter.plot(wavelength, flux_norm, self.line_catalog, results, file_name)
-            print(f"    Saved plot: {png_path}")
+            if kept_results:
+                png_path = self.plotter.plot(
+                    wavelength, flux, continuum, flux_norm, kept_lines, kept_results, file_name
+                )
+                print(f"    Saved plot: {png_path}")
+            else:
+                print(f"    No lines matched filters for {file_name} \u2014 skipping plot")
 
-        return results
+        return all_results
 
 
 class ContinuumNormalizer:
@@ -162,7 +219,7 @@ class ContinuumNormalizer:
         flux: np.ndarray,
         poly_degree: int = 5,
         medfilt_kernel: int = 51,
-    ) -> np.ndarray:
+    ) -> tuple[np.ndarray, np.ndarray]:
         kernel = medfilt_kernel if medfilt_kernel % 2 == 1 else medfilt_kernel + 1
         kernel = min(kernel, len(flux) - (1 - len(flux) % 2))
         kernel = max(kernel, 3)
@@ -173,11 +230,10 @@ class ContinuumNormalizer:
         continuum = np.polyval(coeffs, wavelength)
         continuum[continuum <= 0] = np.nanmedian(flux[flux > 0]) if np.any(flux > 0) else 1.0
 
-        return flux / continuum
+        return flux / continuum, continuum
 
 
 class BatchRunner:
-
 
     def __init__(self, processor: Optional[SpectrumProcessor] = None):
         self.processor = processor or SpectrumProcessor(LINE_CATALOG)

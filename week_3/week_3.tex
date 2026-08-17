@@ -1,0 +1,84 @@
+\documentclass[12pt]{article}
+
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath, amssymb}
+\usepackage{booktabs}
+\usepackage{siunitx}
+\usepackage{enumitem}
+\usepackage{setspace}
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage{xcolor}
+
+\usepackage{multirow}
+\usepackage{hyperref}
+\usepackage{cleveref}
+\usepackage[version=4]{mhchem}
+\graphicspath{{figs/}}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue!55!black,
+  citecolor=blue!55!black,
+  urlcolor=blue!55!black,
+}
+
+\captionsetup{font=small, labelfont=bf, labelsep=colon}
+
+\titleformat{\section}{\normalfont\Large\bfseries\color{blue!30!black}}{\thesection}{1em}{}
+\titleformat{\subsection}{\normalfont\large\bfseries\color{blue!25!black}}{\thesubsection}{1em}{}
+
+\pagestyle{fancy}
+\setlength{\headheight}{14pt}
+\fancyhf{}
+\fancyhead[R]{\small SDSS OB Star Spectral Line Analysis}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+\setcounter{tocdepth}{2}
+\setcounter{secnumdepth}{2}
+
+\title{\textbf{SDSS OB Star Spectral Line Analysis}\\
+\large LaTeX Progress Report}
+\author{Ayan Kashif \\ \small Reg. No: 240601050}
+\date{Submitted to:\\Mr. Syed Ali Mohsin Bukhari}
+
+\begin{document}
+
+\maketitle
+\thispagestyle{empty}
+
+\begin{center}
+\textit{ Week 3 (27th--31st August)}
+\end{center}
+
+\clearpage
+\tableofcontents
+\clearpage
+
+
+\section{Repository Setup and Output Fixes (Week 3)}
+\label{sec:repo-setup}
+
+Week 3 (27th--31st August) opened with setting up the \texttt{src} directory in the git repo and reformatting the code written so far. A few scripts had output issues traced back to an incorrect output directory or the wrong file type being written, so these were tracked down and fixed. Once the outputs were writing correctly, CSV files were introduced to capture different parameters of each spectrum after fitting --- things like the fitted center and the $R^2$ value --- so they would be easy to reference later without re-running anything.
+
+\section{Naming Cleanup and the Double-Voigt Fitter (Week 3)}
+\label{sec:naming-cleanup}
+
+The remainder of Week 3 (28th--31st August) went into cleaning up naming across the project. All file and variable names were converted to \texttt{snake\_case} so everything reads more consistently and professionally, and to avoid the kind of naming issues that tend to cause problems down the line. Rather than renaming things by hand, a Python script was written to handle the conversion in one pass, which saved a lot of time and kept things consistent. Work also began on a double-line Voigt fitter, mainly to see which spectral dips it could successfully fit and whether it is solid enough to use as a benchmark going forward.
+
+\section{Notes}
+\label{sec:notes}
+
+\begin{itemize}[leftmargin=*]
+  \item Automating the \texttt{snake\_case} rename with a script was worth it --- doing it by hand across the whole repo would have been slow and error-prone.
+  \item Catching the output-directory/file-type bugs early this week should save some debugging time later once more fitters depend on those CSVs.
+  \item Still need to properly evaluate whether the double-Voigt fitter's dip detection is reliable enough to trust as a benchmark, rather than just usable.
+\end{itemize}
+
+\end{document}
