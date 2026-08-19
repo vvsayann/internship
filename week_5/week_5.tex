@@ -1,0 +1,153 @@
+\documentclass[12pt]{article}
+
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath, amssymb}
+\usepackage{booktabs}
+\usepackage{siunitx}
+\usepackage{enumitem}
+\usepackage{setspace}
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage{xcolor}
+
+\usepackage{multirow}
+\usepackage{hyperref}
+\usepackage{cleveref}
+\usepackage[version=4]{mhchem}
+\graphicspath{{figs/}}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue!55!black,
+  citecolor=blue!55!black,
+  urlcolor=blue!55!black,
+}
+
+\captionsetup{font=small, labelfont=bf, labelsep=colon}
+
+\titleformat{\section}{\normalfont\Large\bfseries\color{blue!30!black}}{\thesection}{1em}{}
+\titleformat{\subsection}{\normalfont\large\bfseries\color{blue!25!black}}{\thesubsection}{1em}{}
+
+\pagestyle{fancy}
+\setlength{\headheight}{14pt}
+\fancyhf{}
+\fancyhead[R]{\small SDSS OB Star Spectral Line Analysis}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+\setcounter{tocdepth}{2}
+\setcounter{secnumdepth}{2}
+
+\title{\textbf{SDSS OB Star Spectral Line Analysis}\\
+\large LaTeX Progress Report}
+\author{Ayan Kashif \\ \small Reg. No: 240601050}
+\date{Submitted to:\\Mr. Syed Ali Mohsin Bukhari}
+
+\begin{document}
+
+\maketitle
+\thispagestyle{empty}
+
+\begin{center}
+\textit{ Week 5 (10th--14th August)}
+\end{center}
+
+\clearpage
+\tableofcontents
+\clearpage
+\listoftables
+\clearpage
+
+
+\section{Overview}
+\label{sec:overview}
+
+Week 5 (10th--14th August) was spent identifying the spectral lines that recur most consistently across the fitted spectra, using two line-profile models --- Voigt and Gaussian --- and comparing their behaviour as the goodness-of-fit threshold ($R^2$) was varied. The continuum normalization step was also revisited and corrected, and a new diagnostic metric, the fractional RMS, was added to the output plots.
+
+\section{Methodology}
+\label{sec:methodology}
+
+Voigt profile fitting was carried out first, with the output constrained by the coefficient of determination ($R^2$). The resulting \texttt{.csv} files were then analyzed to determine which spectral lines appeared most frequently across the fitted spectra, and their detection percentages were computed at five $R^2$ thresholds: 0.80, 0.75, 0.70, 0.65, and 0.60.
+
+The fitting code (\texttt{fitters.py} and \texttt{spectrum.py}) was then modified to restrict the line profile to a pure Gaussian shape, and the same common-line analysis was repeated for direct comparison against the Voigt results.
+
+On August 11th, the common lines were compared across the full $R^2$ range (0.80--0.60), and the continuum normalizer was reviewed. It was found to be flattening the continuum slope instead of preserving the natural slope present in the original spectra. This was traced to an offset issue in the normalization step, which has since been fixed. It is worth noting that the dataset consists entirely of helium (He) stars, with no hydrogen-alpha-type stars included.
+
+\section{Results: Common Spectral Lines ($R^2 \geq 0.60$)}
+\label{sec:results}
+
+The tables below report the lines common across fitted spectra at the loosest threshold tested ($R^2 \geq 0.60$), where the largest number of spectra pass the fit-quality cut. Each entry gives the fraction of spectra in which the line was detected ($n/N$) and the corresponding percentage.
+
+\subsection{Voigt Profile --- \texorpdfstring{$R^2 \geq 0.60$}{R2 >= 0.60}}
+\label{subsec:voigt-lines}
+
+\begin{table}[htbp]
+\centering
+\caption{Common spectral lines detected under the Voigt profile fit, $R^2 \geq 0.60$.}
+\label{tab:voigt-lines}
+\begin{tabular}{@{}lcc@{}}
+\toprule
+\textbf{Spectral Line} & \textbf{Detections ($n/N$)} & \textbf{Percentage} \\
+\midrule
+He\,\textsc{i} 4473        & 47/59 & 79\% \\
+He\,\textsc{i} 5876        & 42/59 & 71\% \\
+He\,\textsc{i} 4715        & 35/59 & 59\% \\
+He\,\textsc{i} 6678        & 35/59 & 59\% \\
+He\,\textsc{i} 4925        & 34/59 & 57\% \\
+He\,\textsc{i} 5015        & 33/59 & 55\% \\
+He\,\textsc{i} 4028        & 30/59 & 50\% \\
+H8 + He\,\textsc{i} 3890   & 27/59 & 45\% \\
+He\,\textsc{i} 3818        & 3/59  & 5\%  \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Gaussian Profile --- \texorpdfstring{$R^2 \geq 0.60$}{R2 >= 0.60}}
+\label{subsec:gaussian-lines}
+
+\begin{table}[htbp]
+\centering
+\caption{Common spectral lines detected under the Gaussian profile fit, $R^2 \geq 0.60$.}
+\label{tab:gaussian-lines}
+\begin{tabular}{@{}lcc@{}}
+\toprule
+\textbf{Spectral Line} & \textbf{Detections ($n/N$)} & \textbf{Percentage} \\
+\midrule
+He\,\textsc{i} 4473        & 45/59 & 76\% \\
+He\,\textsc{i} 5876        & 42/59 & 71\% \\
+He\,\textsc{i} 4715        & 34/59 & 58\% \\
+He\,\textsc{i} 6678        & 35/59 & 59\% \\
+He\,\textsc{i} 4925        & 33/59 & 56\% \\
+He\,\textsc{i} 5015        & 33/59 & 56\% \\
+He\,\textsc{i} 4028        & 30/59 & 51\% \\
+H8 + He\,\textsc{i} 3890   & 27/59 & 46\% \\
+He\,\textsc{i} 3818        & 3/59  & 5\%  \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+At this threshold, both profiles identify the same dominant lines --- He\,\textsc{i} 4473, He\,\textsc{i} 5876, and He\,\textsc{i} 6678 --- as the most consistently detected, with He\,\textsc{i} 3818 remaining the weakest and least common line in either model. The Voigt and Gaussian results are close at 0.60, differing by only a few percentage points per line, suggesting that at looser fit-quality cuts the choice of profile has a relatively small effect on which lines are recovered.
+
+\section{Continuum Fix and Fractional RMS}
+\label{sec:continuum-fix}
+
+The continuum-fitting offset issue was resolved, restoring the natural slope of the continuum rather than the artificially flattened one produced by the earlier normalizer. A fractional RMS metric was also added to the diagnostic plots to help quantify fit quality alongside $R^2$.
+
+\subsection{What is fractional RMS?}
+\label{subsec:fractional-rms}
+
+Fractional RMS (root-mean-square) is a normalized measure of the scatter between an observed spectrum and its fitted model, expressed as a fraction of the local continuum or flux level rather than in absolute flux units. It is calculated by taking the root-mean-square of the residuals (observed minus fitted flux) and dividing by the mean or continuum flux level over the same region:
+
+\begin{equation}
+  \text{Fractional RMS} = \frac{\mathrm{RMS(residuals)}}{\mathrm{Mean(continuum\ flux)}}
+  \label{eq:fractional-rms}
+\end{equation}
+
+Because it is normalized, fractional RMS allows fit quality to be compared across spectra with different flux scales or signal-to-noise levels on a common footing, unlike raw RMS. A lower fractional RMS indicates that the fitted profile tracks the observed spectrum more closely relative to its own flux level, making it a useful complement to $R^2$ when judging whether a fit is reliable enough to include in the common-line statistics.
+
+\end{document}

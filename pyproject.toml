@@ -13,6 +13,7 @@ dependencies = [
     "pyqt6>=6.11.0",
     "scipy>=1.15.3",
     "scipy-stubs~=1.15.3",
+    "streamlit>=1.61.1",
 ]
 
 [build-system]

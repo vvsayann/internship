@@ -45,7 +45,9 @@ def _center_bounds(x: np.ndarray, guess_center: float) -> tuple[float, float]:
 def fit_continuum(wavelength, flux, p0=None):
     cont = LinesWithSigmoid(wavelength, flux)
     if p0 is None:
-        p0 = (0.001, float(np.median(wavelength)), 0.0, float(np.median(flux)), 0.0, float(np.median(flux)))
+        # (a1, b1, a2, b2, k, x0): two flat lines at the median flux, blended
+        # by a shallow sigmoid transition centered at the median wavelength.
+        p0 = (0.0, float(np.median(flux)), 0.0, float(np.median(flux)), 0.01, float(np.median(wavelength)))
     cont.fit(p0=[p0])
     return cont
 

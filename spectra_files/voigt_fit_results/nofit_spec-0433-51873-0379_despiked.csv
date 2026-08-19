@@ -1,0 +1,2 @@
+file_name,line_name,rest_wavelength,fit_type,fitted_center,depth,sigma_gaussian_width,gamma_voigt,continuum_offset,r_squared,fractional_rms,success,note
+spec-0433-51873-0379_despiked.fits,ALL,,none,,,,,,,,False,file-level error: Optimal parameters not found: The maximum number of function evaluations is exceeded.
