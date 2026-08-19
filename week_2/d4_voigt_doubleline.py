@@ -19,7 +19,7 @@ from src.internship.fit_result import FitResult
 from src.internship.fitters import LineFitter
 
 from src.internship.spectrum import SpectrumReader, SpectrumPlotter, SpectralLine, LINE_CATALOG, SpectrumProcessor, \
-    BatchRunner, ContinuumNormalizer
+    BatchRunner
 
 from src.internship.utilities import voigt_dip
 

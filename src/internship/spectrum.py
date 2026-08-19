@@ -8,10 +8,9 @@ import numpy as np
 import pandas as pd
 from astropy.io import fits
 from matplotlib import pyplot as plt
-from scipy.signal import medfilt
 from .spectral_line import SpectralLine
 from .fit_result import FitResult
-from .fitters import LineFitter
+from .fitters import LineFitter, fit_continuum
 from .utilities import sigmoid_dip , gaussian_dip, voigt_dip
 
 
@@ -157,7 +156,7 @@ class SpectrumPlotter:
 
 
 LINE_CATALOG: list[SpectralLine] = [
-    SpectralLine("He I 3818", 3818.0, window=12.0),
+        SpectralLine("He I 3818", 3818.0, window=12.0),
     SpectralLine("H8 + He I 3890", 3890.0, window=14.0),
     SpectralLine("He I 4028", 4028.0, window=12.0),
     SpectralLine("He I 4473", 4473.0, window=12.0),
@@ -187,7 +186,9 @@ class SpectrumProcessor:
     def process(self, filepath: str) -> list[FitResult]:
         file_name = os.path.basename(filepath)
         wavelength, flux, _ivar = SpectrumReader.load(filepath)
-        flux_norm, continuum = ContinuumNormalizer.normalize(wavelength, flux)
+        continuum = fit_continuum(wavelength, flux).get_fitted_curve()
+        continuum[continuum <= 0] = np.nanmedian(flux[flux > 0]) if np.any(flux > 0) else 1.0
+        flux_norm = flux / continuum
 
         all_results = [self.fitter.fit_line(wavelength, flux_norm, line, file_name) for line in self.line_catalog]
 
@@ -210,27 +211,6 @@ class SpectrumProcessor:
                 print(f"    No lines matched filters for {file_name} \u2014 skipping plot")
 
         return all_results
-
-
-class ContinuumNormalizer:
-    @staticmethod
-    def normalize(
-        wavelength: np.ndarray,
-        flux: np.ndarray,
-        poly_degree: int = 5,
-        medfilt_kernel: int = 51,
-    ) -> tuple[np.ndarray, np.ndarray]:
-        kernel = medfilt_kernel if medfilt_kernel % 2 == 1 else medfilt_kernel + 1
-        kernel = min(kernel, len(flux) - (1 - len(flux) % 2))
-        kernel = max(kernel, 3)
-
-        smoothed = medfilt(flux, kernel_size=kernel)
-
-        coeffs = np.polyfit(wavelength, smoothed, poly_degree)
-        continuum = np.polyval(coeffs, wavelength)
-        continuum[continuum <= 0] = np.nanmedian(flux[flux > 0]) if np.any(flux > 0) else 1.0
-
-        return flux / continuum, continuum
 
 
 class BatchRunner:
